@@ -22,6 +22,7 @@ import {
   X
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
+import ParallaxBackground from "@/components/ParallaxBackground";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -43,19 +44,27 @@ export default function DashboardLayout({ children, userName = "User" }: Dashboa
   const initials = userName.split(" ").map(n => n[0]).join("").toUpperCase();
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-card border-b">
+    <div className="min-h-screen bg-background relative">
+      {/* Animated Parallax Background */}
+      <ParallaxBackground />
+      
+      {/* Glass Header */}
+      <header className="sticky top-0 z-50 backdrop-blur-glass border-b border-white/10" style={{
+        background: 'rgba(0, 0, 0, 0.6)',
+      }}>
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-8">
-              <Link href="/dashboard" className="font-display font-bold text-xl text-foreground flex items-center gap-2" data-testid="link-logo">
-                <div className="p-2 rounded-md bg-primary text-primary-foreground">
+              <Link href="/dashboard" className="font-display font-bold text-xl text-foreground flex items-center gap-2 neon-glow" data-testid="link-logo">
+                <div className="p-2 rounded-md bg-primary text-primary-foreground animate-pulse-neon">
                   <LayoutDashboard className="h-5 w-5" />
                 </div>
-                SkillPath
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
+                  SkillPath
+                </span>
               </Link>
 
-              <nav className="hidden md:flex items-center gap-1">
+              <nav className="hidden md:flex items-center gap-2">
                 {navigation.map((item) => {
                   const Icon = item.icon;
                   const isActive = location === item.href;
@@ -63,10 +72,10 @@ export default function DashboardLayout({ children, userName = "User" }: Dashboa
                     <Link 
                       key={item.name} 
                       href={item.href}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors hover-elevate ${
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all pop-hover ${
                         isActive
-                          ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground"
+                          ? "glass-card text-primary border-primary/40"
+                          : "text-muted-foreground hover:text-foreground"
                       }`}
                       data-testid={`nav-${item.name.toLowerCase()}`}
                     >
@@ -130,8 +139,8 @@ export default function DashboardLayout({ children, userName = "User" }: Dashboa
           </div>
 
           {mobileMenuOpen && (
-            <nav className="md:hidden mt-4 pb-4 border-t pt-4">
-              <div className="space-y-1">
+            <nav className="md:hidden mt-4 pb-4 border-t border-white/10 pt-4">
+              <div className="space-y-2">
                 {navigation.map((item) => {
                   const Icon = item.icon;
                   const isActive = location === item.href;
@@ -139,10 +148,10 @@ export default function DashboardLayout({ children, userName = "User" }: Dashboa
                     <Link 
                       key={item.name} 
                       href={item.href}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover-elevate ${
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
                         isActive
-                          ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground"
+                          ? "glass-card text-primary border-primary/40"
+                          : "text-muted-foreground hover:text-foreground hover:glass-card"
                       }`}
                       onClick={() => setMobileMenuOpen(false)}
                     >
@@ -157,7 +166,7 @@ export default function DashboardLayout({ children, userName = "User" }: Dashboa
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8 relative z-10">
         {children}
       </main>
     </div>

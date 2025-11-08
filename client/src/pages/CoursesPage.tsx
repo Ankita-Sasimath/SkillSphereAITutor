@@ -119,20 +119,20 @@ export default function CoursesPage() {
     const skillLevel = skillLevels[course.domain] || 'Not assessed';
     
     return (
-      <Card className="p-6 hover-elevate transition-all">
+      <div className="glass-card p-6 rounded-2xl neon-border group">
         <div className="flex justify-between items-start gap-4 mb-4">
           <div className="flex-1">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <h3 className="font-display font-semibold text-lg leading-tight" data-testid={`course-title-${course.id}`}>
+              <h3 className="font-display font-semibold text-lg leading-tight text-foreground group-hover:text-primary transition-colors" data-testid={`course-title-${course.id}`}>
                 {course.title}
               </h3>
               {course.isFree && (
-                <Badge variant="outline" className="bg-chart-3/10 text-chart-3 border-chart-3/20 flex-shrink-0">
+                <Badge variant="outline" className="bg-chart-3/20 text-chart-3 border-chart-3/40 backdrop-blur-sm flex-shrink-0">
                   Free
                 </Badge>
               )}
               {isEnrolled && (
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 flex-shrink-0">
+                <Badge variant="outline" className="bg-primary/20 text-primary border-primary/40 backdrop-blur-sm flex-shrink-0 animate-pulse-neon">
                   Enrolled
                 </Badge>
               )}
@@ -143,12 +143,12 @@ export default function CoursesPage() {
           </div>
         </div>
 
-        <p className="text-sm text-foreground mb-4 line-clamp-2">
+        <p className="text-sm text-foreground/80 mb-4 line-clamp-2">
           {course.description}
         </p>
 
         <div className="flex flex-wrap items-center gap-3 mb-4">
-          <Badge variant="outline" className="bg-primary/5">
+          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 backdrop-blur-sm">
             {course.skillLevel}
           </Badge>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -156,11 +156,11 @@ export default function CoursesPage() {
             {course.duration}
           </div>
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <Star className="h-4 w-4 fill-current text-yellow-500" />
+            <Star className="h-4 w-4 fill-current text-yellow-400" />
             {course.rating}
           </div>
           {!course.isFree && (
-            <div className="flex items-center gap-1 text-sm font-medium">
+            <div className="flex items-center gap-1 text-sm font-medium text-primary">
               <DollarSign className="h-4 w-4" />
               {course.price}
             </div>
@@ -170,7 +170,7 @@ export default function CoursesPage() {
         <div className="flex gap-2">
           {!isEnrolled && (
             <Button
-              className="flex-1"
+              className="flex-1 glow-primary"
               onClick={() => enrollMutation.mutate(course)}
               disabled={enrollMutation.isPending}
               data-testid={`button-enroll-${course.id}`}
@@ -186,7 +186,7 @@ export default function CoursesPage() {
           <Button
             variant={isEnrolled ? "default" : "outline"}
             size={isEnrolled ? "default" : "icon"}
-            className={isEnrolled ? "flex-1" : ""}
+            className={isEnrolled ? "flex-1 glow-primary" : ""}
             asChild
             data-testid={`button-view-course-${course.id}`}
           >
@@ -196,7 +196,7 @@ export default function CoursesPage() {
             </a>
           </Button>
         </div>
-      </Card>
+      </div>
     );
   };
 

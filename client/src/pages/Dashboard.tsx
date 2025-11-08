@@ -68,54 +68,54 @@ export default function Dashboard() {
 
         {/* Stats Cards */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="p-6">
+          <div className="glass-card p-6 rounded-2xl neon-border group">
             <div className="flex items-center justify-between mb-2">
-              <div className="p-2 rounded-md bg-chart-1/10">
-                <BookOpen className="h-5 w-5 text-chart-1" />
+              <div className="p-3 rounded-lg bg-primary/20 border border-primary/30 backdrop-blur-sm">
+                <BookOpen className="h-6 w-6 text-primary" />
               </div>
             </div>
-            <div className="text-2xl font-bold" data-testid="stat-enrolled-courses">{enrolledCourses.length}</div>
-            <p className="text-sm text-muted-foreground">Enrolled Courses</p>
-          </Card>
+            <div className="text-3xl font-display font-bold text-primary" data-testid="stat-enrolled-courses">{enrolledCourses.length}</div>
+            <p className="text-sm text-muted-foreground mt-1">Enrolled Courses</p>
+          </div>
 
-          <Card className="p-6">
+          <div className="glass-card p-6 rounded-2xl neon-border group">
             <div className="flex items-center justify-between mb-2">
-              <div className="p-2 rounded-md bg-chart-3/10">
-                <Award className="h-5 w-5 text-chart-3" />
+              <div className="p-3 rounded-lg bg-chart-3/20 border border-chart-3/30 backdrop-blur-sm">
+                <Award className="h-6 w-6 text-chart-3" />
               </div>
             </div>
-            <div className="text-2xl font-bold" data-testid="stat-skills-assessed">{skillsAssessed}</div>
-            <p className="text-sm text-muted-foreground">Skills Assessed</p>
-          </Card>
+            <div className="text-3xl font-display font-bold text-chart-3" data-testid="stat-skills-assessed">{skillsAssessed}</div>
+            <p className="text-sm text-muted-foreground mt-1">Skills Assessed</p>
+          </div>
 
-          <Card className="p-6">
+          <div className="glass-card p-6 rounded-2xl neon-border group">
             <div className="flex items-center justify-between mb-2">
-              <div className="p-2 rounded-md bg-chart-5/10">
-                <Target className="h-5 w-5 text-chart-5" />
+              <div className="p-3 rounded-lg bg-chart-4/20 border border-chart-4/30 backdrop-blur-sm">
+                <Target className="h-6 w-6 text-chart-4" />
               </div>
             </div>
-            <div className="text-2xl font-bold" data-testid="stat-selected-domains">{selectedDomains.length}</div>
-            <p className="text-sm text-muted-foreground">Learning Domains</p>
-          </Card>
+            <div className="text-3xl font-display font-bold text-chart-4" data-testid="stat-selected-domains">{selectedDomains.length}</div>
+            <p className="text-sm text-muted-foreground mt-1">Learning Domains</p>
+          </div>
 
-          <Card className="p-6">
+          <div className="glass-card p-6 rounded-2xl neon-border group">
             <div className="flex items-center justify-between mb-2">
-              <div className="p-2 rounded-md bg-chart-2/10">
-                <Clock className="h-5 w-5 text-chart-2" />
+              <div className="p-3 rounded-lg bg-chart-2/20 border border-chart-2/30 backdrop-blur-sm">
+                <Clock className="h-6 w-6 text-chart-2" />
               </div>
             </div>
-            <div className="text-2xl font-bold" data-testid="stat-upcoming-items">{upcomingSchedule.length}</div>
-            <p className="text-sm text-muted-foreground">Upcoming Tasks</p>
-          </Card>
+            <div className="text-3xl font-display font-bold text-chart-2" data-testid="stat-upcoming-items">{upcomingSchedule.length}</div>
+            <p className="text-sm text-muted-foreground mt-1">Upcoming Tasks</p>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Skills Overview */}
-          <Card className="p-6">
+          <div className="glass-card p-6 rounded-2xl neon-border">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="font-display font-semibold text-xl">Your Skills</h2>
+              <h2 className="font-display font-semibold text-xl text-foreground">Your Skills</h2>
               <Link href="/assessments">
-                <Button variant="ghost" size="sm" data-testid="button-view-assessments">
+                <Button variant="ghost" size="sm" className="hover:text-primary" data-testid="button-view-assessments">
                   <FileQuestion className="h-4 w-4 mr-2" />
                   Take Quiz
                 </Button>
@@ -133,27 +133,27 @@ export default function Dashboard() {
                 </Link>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {Object.entries(skillLevels).map(([domain, level]) => (
-                  <div key={domain} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                  <div key={domain} className="flex items-center justify-between p-4 rounded-lg border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 transition-all">
                     <div className="flex-1">
-                      <p className="font-medium" data-testid={`skill-domain-${domain}`}>{domain}</p>
+                      <p className="font-medium text-foreground" data-testid={`skill-domain-${domain}`}>{domain}</p>
                     </div>
-                    <Badge variant="outline" className={getLevelBadgeColor(level)} data-testid={`skill-level-${domain}`}>
+                    <Badge variant="outline" className={`${getLevelBadgeColor(level)} backdrop-blur-sm`} data-testid={`skill-level-${domain}`}>
                       {level}
                     </Badge>
                   </div>
                 ))}
               </div>
             )}
-          </Card>
+          </div>
 
           {/* Enrolled Courses */}
-          <Card className="p-6">
+          <div className="glass-card p-6 rounded-2xl neon-border">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="font-display font-semibold text-xl">Enrolled Courses</h2>
+              <h2 className="font-display font-semibold text-xl text-foreground">Enrolled Courses</h2>
               <Link href="/courses">
-                <Button variant="ghost" size="sm" data-testid="button-browse-courses">
+                <Button variant="ghost" size="sm" className="hover:text-primary" data-testid="button-browse-courses">
                   Browse All
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
@@ -174,30 +174,30 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 {enrolledCourses.slice(0, 3).map((course: any) => (
-                  <div key={course.id} className="p-3 rounded-lg border hover-elevate" data-testid={`enrolled-course-${course.id}`}>
-                    <div className="flex items-start justify-between gap-3 mb-2">
+                  <div key={course.id} className="p-4 rounded-lg border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-primary/40 transition-all group" data-testid={`enrolled-course-${course.id}`}>
+                    <div className="flex items-start justify-between gap-3 mb-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-medium">{course.title}</p>
+                          <p className="font-medium text-foreground group-hover:text-primary transition-colors">{course.courseTitle}</p>
                           {course.completed && (
                             <CheckCircle2 className="h-4 w-4 text-chart-3 flex-shrink-0" />
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">{course.provider}</p>
+                        <p className="text-sm text-muted-foreground">{course.coursePlatform}</p>
                       </div>
                       <a 
-                        href={course.url} 
+                        href={course.courseUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="hover-elevate p-2 rounded-md"
+                        className="p-2 rounded-md hover:bg-primary/20 transition-colors"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        <ExternalLink className="h-4 w-4 text-primary" />
                       </a>
                     </div>
                     <div className="flex items-center gap-2">
                       <Progress value={course.progress || 0} className="flex-1 h-2" />
-                      <span className="text-xs font-medium text-muted-foreground min-w-[3rem] text-right">
+                      <span className="text-xs font-medium text-primary min-w-[3rem] text-right">
                         {course.progress || 0}%
                       </span>
                     </div>
@@ -205,51 +205,51 @@ export default function Dashboard() {
                 ))}
               </div>
             )}
-          </Card>
+          </div>
         </div>
 
         {/* Quick Actions */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Link href="/courses">
-            <Card className="p-6 glow-subtle cursor-pointer" data-testid="card-quick-action-courses">
+            <div className="glass-card p-6 rounded-2xl glow-subtle cursor-pointer neon-border group" data-testid="card-quick-action-courses">
               <div className="flex items-start gap-4">
-                <div className="p-3 rounded-lg bg-primary/10">
+                <div className="p-3 rounded-lg bg-primary/20 border border-primary/30 backdrop-blur-sm group-hover:bg-primary/30 transition-colors">
                   <BookOpen className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">Browse Courses</h3>
+                  <h3 className="font-semibold mb-1 text-foreground group-hover:text-primary transition-colors">Browse Courses</h3>
                   <p className="text-sm text-muted-foreground">Discover personalized recommendations</p>
                 </div>
               </div>
-            </Card>
+            </div>
           </Link>
 
           <Link href="/schedule">
-            <Card className="p-6 glow-subtle cursor-pointer" data-testid="card-quick-action-schedule">
+            <div className="glass-card p-6 rounded-2xl glow-subtle cursor-pointer neon-border group" data-testid="card-quick-action-schedule">
               <div className="flex items-start gap-4">
-                <div className="p-3 rounded-lg bg-chart-1/10">
-                  <Calendar className="h-6 w-6 text-chart-1" />
+                <div className="p-3 rounded-lg bg-chart-2/20 border border-chart-2/30 backdrop-blur-sm group-hover:bg-chart-2/30 transition-colors">
+                  <Calendar className="h-6 w-6 text-chart-2" />
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">View Schedule</h3>
+                  <h3 className="font-semibold mb-1 text-foreground group-hover:text-chart-2 transition-colors">View Schedule</h3>
                   <p className="text-sm text-muted-foreground">Check your learning timeline</p>
                 </div>
               </div>
-            </Card>
+            </div>
           </Link>
 
           <Link href="/mentor">
-            <Card className="p-6 glow-subtle cursor-pointer" data-testid="card-quick-action-mentor">
+            <div className="glass-card p-6 rounded-2xl glow-subtle cursor-pointer neon-border group" data-testid="card-quick-action-mentor">
               <div className="flex items-start gap-4">
-                <div className="p-3 rounded-lg bg-chart-3/10">
+                <div className="p-3 rounded-lg bg-chart-3/20 border border-chart-3/30 backdrop-blur-sm group-hover:bg-chart-3/30 transition-colors">
                   <MessageCircle className="h-6 w-6 text-chart-3" />
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-1">AI Mentor</h3>
+                  <h3 className="font-semibold mb-1 text-foreground group-hover:text-chart-3 transition-colors">AI Mentor</h3>
                   <p className="text-sm text-muted-foreground">Get personalized guidance</p>
                 </div>
               </div>
-            </Card>
+            </div>
           </Link>
         </div>
       </div>

@@ -24,6 +24,12 @@ SkillPath is an AI-powered educational platform that provides personalized skill
   - **Improved hero contrast**: Added stronger dark overlay and text shadows on landing page for better heading visibility
   - **Unique quiz generation**: Implemented timestamp-based seed + temperature 0.9 for OpenAI; enhanced fallback with multiple question banks (10 total), shuffling, and random selection (252+ combinations)
   - **AI Mentor platform navigation**: Enhanced system prompt to guide users through platform features (Dashboard, Courses, Assessments, Schedule) with step-by-step usage instructions
+  - **Visual enhancements with professional imagery**:
+    - Added professional stock photo to hero section that complements the futuristic design
+    - Integrated domain-specific images into enrolled course cards (Web Dev, IoT, Data Science)
+    - Course cards now feature 128×128px thumbnail images with gradient overlays
+    - All taglines (domain, skill level) remain clearly visible with proper contrast
+    - Hover effects on course images for enhanced interactivity
 
 ## User Preferences
 

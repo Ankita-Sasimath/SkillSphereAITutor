@@ -30,6 +30,12 @@ SkillPath is an AI-powered educational platform that provides personalized skill
     - Course cards now feature 128×128px thumbnail images with gradient overlays
     - All taglines (domain, skill level) remain clearly visible with proper contrast
     - Hover effects on course images for enhanced interactivity
+  - **3D Holographic Hero Image**:
+    - Generated stunning 3D AI learning hologram with neon cyan/blue glowing circuits and geometric shapes
+    - Two-column responsive layout: text content on left, floating 3D hologram on right (desktop only)
+    - Continuous floating animation with cyan glow effects and hover interactions
+    - Mobile-optimized: 3D image hidden on smaller screens to preserve text focus
+    - Background opacity reduced to 25% to enhance 3D image visibility while maintaining text clarity
 
 ## User Preferences
 

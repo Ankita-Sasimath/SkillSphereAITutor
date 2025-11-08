@@ -363,12 +363,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Save skill level for domain
       await storage.setDomainSkillLevel(user.id, domain, skillLevel);
 
+      // Prepare detailed results
+      const detailedResults = questions.map((q: any, idx: number) => ({
+        question: q.question,
+        options: q.options,
+        userAnswer: answers[idx],
+        correctAnswer: q.correctAnswer,
+        isCorrect: q.correctAnswer === answers[idx]
+      }));
+
       res.json({
         score,
         totalQuestions,
         percentage,
         skillLevel,
-        attemptId: attempt.id
+        attemptId: attempt.id,
+        results: detailedResults
       });
     } catch (error) {
       console.error("Error submitting quiz:", error);

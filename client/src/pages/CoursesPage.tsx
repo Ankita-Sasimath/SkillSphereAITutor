@@ -58,6 +58,12 @@ export default function CoursesPage() {
     enabled: !!userId,
   });
 
+  // Fetch enrolled courses
+  const { data: enrolledCoursesData, isLoading: isLoadingEnrolled } = useQuery<{ courses: Course[] }>({
+    queryKey: ['/api/user', userId, 'enrolled'],
+    enabled: !!userId,
+  });
+
   // Enroll in course mutation
   const enrollMutation = useMutation({
     mutationFn: async (courseId: string) => {
@@ -77,9 +83,17 @@ export default function CoursesPage() {
   });
 
   const courses = coursesData?.courses || [];
+  const enrolledCourses = enrolledCoursesData?.courses || [];
 
   // Filter courses
   const filteredCourses = courses.filter(course => {
+    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         course.provider.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesDomain = !selectedDomain || course.domain === selectedDomain;
+    return matchesSearch && matchesDomain;
+  });
+
+  const filteredEnrolledCourses = enrolledCourses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          course.provider.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDomain = !selectedDomain || course.domain === selectedDomain;
@@ -90,7 +104,7 @@ export default function CoursesPage() {
   const freeCourses = filteredCourses.filter(c => c.isFree);
   const paidCourses = filteredCourses.filter(c => !c.isFree);
 
-  const CourseCard = ({ course }: { course: Course }) => {
+  const CourseCard = ({ course, isEnrolled = false }: { course: Course; isEnrolled?: boolean }) => {
     const skillLevel = skillLevels[course.domain] || 'Not assessed';
     
     return (
@@ -104,6 +118,11 @@ export default function CoursesPage() {
               {course.isFree && (
                 <Badge variant="outline" className="bg-chart-3/10 text-chart-3 border-chart-3/20 flex-shrink-0">
                   Free
+                </Badge>
+              )}
+              {isEnrolled && (
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 flex-shrink-0">
+                  Enrolled
                 </Badge>
               )}
             </div>
@@ -138,27 +157,31 @@ export default function CoursesPage() {
         </div>
 
         <div className="flex gap-2">
+          {!isEnrolled && (
+            <Button
+              className="flex-1"
+              onClick={() => enrollMutation.mutate(course.id)}
+              disabled={enrollMutation.isPending}
+              data-testid={`button-enroll-${course.id}`}
+            >
+              {enrollMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              Enroll Now
+            </Button>
+          )}
           <Button
-            className="flex-1"
-            onClick={() => enrollMutation.mutate(course.id)}
-            disabled={enrollMutation.isPending}
-            data-testid={`button-enroll-${course.id}`}
-          >
-            {enrollMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-            )}
-            Enroll Now
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
+            variant={isEnrolled ? "default" : "outline"}
+            size={isEnrolled ? "default" : "icon"}
+            className={isEnrolled ? "flex-1" : ""}
             asChild
             data-testid={`button-view-course-${course.id}`}
           >
             <a href={course.url} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-4 w-4" />
+              {isEnrolled && <span className="ml-2">Continue Learning</span>}
             </a>
           </Button>
         </div>
@@ -214,27 +237,47 @@ export default function CoursesPage() {
         </div>
 
         {/* Course Tabs */}
-        <Tabs defaultValue="free" className="w-full">
+        <Tabs defaultValue="enrolled" className="w-full">
           <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="enrolled" className="flex-1 sm:flex-none" data-testid="tab-enrolled-courses">
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              My Courses ({enrolledCourses.length})
+            </TabsTrigger>
             <TabsTrigger value="free" className="flex-1 sm:flex-none" data-testid="tab-free-courses">
               <BookOpen className="h-4 w-4 mr-2" />
-              Free Courses ({freeCourses.length})
+              Free ({freeCourses.length})
             </TabsTrigger>
             <TabsTrigger value="paid" className="flex-1 sm:flex-none" data-testid="tab-paid-courses">
               <TrendingUp className="h-4 w-4 mr-2" />
-              Premium Courses ({paidCourses.length})
+              Premium ({paidCourses.length})
             </TabsTrigger>
             <TabsTrigger value="all" className="flex-1 sm:flex-none" data-testid="tab-all-courses">
               All ({filteredCourses.length})
             </TabsTrigger>
           </TabsList>
 
-          {isLoading ? (
+          {isLoading || isLoadingEnrolled ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
             <>
+              <TabsContent value="enrolled" className="mt-6">
+                {filteredEnrolledCourses.length === 0 ? (
+                  <Card className="p-8 text-center">
+                    <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground mb-2">No enrolled courses yet</p>
+                    <p className="text-sm text-muted-foreground">Browse recommended courses below and enroll to start learning!</p>
+                  </Card>
+                ) : (
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredEnrolledCourses.map(course => (
+                      <CourseCard key={course.id} course={course} isEnrolled={true} />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
               <TabsContent value="free" className="mt-6">
                 {freeCourses.length === 0 ? (
                   <Card className="p-8 text-center">

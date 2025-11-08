@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { 
   BookOpen, 
   TrendingUp, 
@@ -14,7 +15,9 @@ import {
   FileQuestion,
   Calendar,
   MessageCircle,
-  Loader2
+  Loader2,
+  CheckCircle2,
+  ExternalLink
 } from "lucide-react";
 
 export default function Dashboard() {
@@ -172,8 +175,32 @@ export default function Dashboard() {
               <div className="space-y-3">
                 {enrolledCourses.slice(0, 3).map((course: any) => (
                   <div key={course.id} className="p-3 rounded-lg border hover-elevate" data-testid={`enrolled-course-${course.id}`}>
-                    <p className="font-medium mb-1">{course.title}</p>
-                    <p className="text-sm text-muted-foreground">{course.provider}</p>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium">{course.title}</p>
+                          {course.completed && (
+                            <CheckCircle2 className="h-4 w-4 text-chart-3 flex-shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{course.provider}</p>
+                      </div>
+                      <a 
+                        href={course.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="hover-elevate p-2 rounded-md"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                      </a>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Progress value={course.progress || 0} className="flex-1 h-2" />
+                      <span className="text-xs font-medium text-muted-foreground min-w-[3rem] text-right">
+                        {course.progress || 0}%
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

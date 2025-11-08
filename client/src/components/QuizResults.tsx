@@ -1,13 +1,23 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, TrendingUp } from "lucide-react";
+import { CheckCircle2, XCircle, TrendingUp, ChevronDown, ChevronUp } from "lucide-react";
+import { useState } from "react";
+
+interface QuestionResult {
+  question: string;
+  options: string[];
+  userAnswer: number;
+  correctAnswer: number;
+  isCorrect: boolean;
+}
 
 interface QuizResultsProps {
   score: number;
   totalQuestions: number;
   skillLevel: "Beginner" | "Intermediate" | "Advanced";
   domain?: string;
+  results?: QuestionResult[];
   topicBreakdown?: { topic: string; correct: number; total: number }[];
   onViewCourses: () => void;
 }
@@ -17,9 +27,11 @@ export default function QuizResults({
   totalQuestions,
   skillLevel,
   domain,
+  results = [],
   topicBreakdown,
   onViewCourses
 }: QuizResultsProps) {
+  const [showDetails, setShowDetails] = useState(false);
   const percentage = Math.round((score / totalQuestions) * 100);
   
   const levelColors = {
@@ -60,11 +72,90 @@ export default function QuizResults({
           {" "}level
         </p>
 
-        <Button size="lg" onClick={onViewCourses} data-testid="button-view-courses">
-          <TrendingUp className="mr-2 h-5 w-5" />
-          View Recommended Courses
-        </Button>
+        <div className="flex flex-wrap gap-3 justify-center">
+          <Button size="lg" onClick={onViewCourses} data-testid="button-view-courses">
+            <TrendingUp className="mr-2 h-5 w-5" />
+            View Recommended Courses
+          </Button>
+          {results && results.length > 0 && (
+            <Button 
+              size="lg" 
+              variant="outline" 
+              onClick={() => setShowDetails(!showDetails)}
+              data-testid="button-toggle-details"
+            >
+              {showDetails ? (
+                <>
+                  <ChevronUp className="mr-2 h-5 w-5" />
+                  Hide Details
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="mr-2 h-5 w-5" />
+                  View Detailed Results
+                </>
+              )}
+            </Button>
+          )}
+        </div>
       </Card>
+
+      {showDetails && results && results.length > 0 && (
+        <Card className="p-6 mb-6">
+          <h3 className="font-display font-semibold text-xl mb-4">Question-by-Question Review</h3>
+          <div className="space-y-6">
+            {results.map((result, index) => (
+              <div 
+                key={index} 
+                className={`p-4 rounded-md border ${
+                  result.isCorrect 
+                    ? "bg-chart-3/5 border-chart-3/20" 
+                    : "bg-destructive/5 border-destructive/20"
+                }`}
+                data-testid={`question-result-${index}`}
+              >
+                <div className="flex items-start gap-3 mb-3">
+                  {result.isCorrect ? (
+                    <CheckCircle2 className="h-5 w-5 text-chart-3 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground mb-3">
+                      Question {index + 1}: {result.question}
+                    </p>
+                    <div className="space-y-2">
+                      {result.options.map((option, optIndex) => {
+                        const isUserAnswer = optIndex === result.userAnswer;
+                        const isCorrectAnswer = optIndex === result.correctAnswer;
+                        
+                        return (
+                          <div
+                            key={optIndex}
+                            className={`p-2 rounded text-sm ${
+                              isCorrectAnswer
+                                ? "bg-chart-3/10 border border-chart-3/30 text-chart-3 font-medium"
+                                : isUserAnswer
+                                ? "bg-destructive/10 border border-destructive/30 text-destructive"
+                                : "bg-muted/30 text-muted-foreground"
+                            }`}
+                          >
+                            {isCorrectAnswer && <CheckCircle2 className="inline h-4 w-4 mr-2" />}
+                            {isUserAnswer && !isCorrectAnswer && <XCircle className="inline h-4 w-4 mr-2" />}
+                            {option}
+                            {isCorrectAnswer && <span className="ml-2 text-xs">(Correct)</span>}
+                            {isUserAnswer && !isCorrectAnswer && <span className="ml-2 text-xs">(Your answer)</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {topicBreakdown && topicBreakdown.length > 0 && (
         <Card className="p-6">

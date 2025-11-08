@@ -83,7 +83,7 @@ export default function AssessmentPage() {
   const handleViewCourses = () => {
     // Store results in localStorage for course recommendation page
     localStorage.setItem('quizResults', JSON.stringify(quizResults));
-    navigate('/dashboard');
+    navigate('/courses');
   };
 
   if (generateQuizMutation.isPending) {
@@ -129,6 +129,7 @@ export default function AssessmentPage() {
           totalQuestions={quizResults.totalQuestions}
           skillLevel={quizResults.skillLevel}
           domain={quizData.domain}
+          results={quizResults.results || []}
           onViewCourses={handleViewCourses}
         />
       </DashboardLayout>

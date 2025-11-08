@@ -10,8 +10,14 @@ SkillPath is an AI-powered educational platform that provides personalized skill
 - Enhanced quiz results with detailed feedback showing correct/incorrect answers
 - AI Mentor auto-assignment with proactive quiz and course recommendations
 - Context-aware AI chat with access to user skills, courses, and quiz history
-- Modern glassmorphism UI with controlled glow effects on primary CTAs
-- Improved responsive design across all breakpoints
+- **Complete Futuristic Glassmorphism UI Redesign:**
+  - Pure black background (#000000) with transparent glass cards
+  - Neon cyan (hsl(180 100% 50%)) and electric blue (hsl(210 100% 50%)) accents
+  - Animated 3D parallax background with floating academic elements (books, pencils, graduation caps)
+  - Glass effects with backdrop-blur and subtle transparency
+  - Interactive neon glow hover effects on cards and buttons
+  - Space Grotesk and Orbitron fonts for futuristic aesthetic
+- Fixed enrolled courses display bug (database field mapping)
 
 ## User Preferences
 
@@ -30,11 +36,15 @@ Preferred communication style: Simple, everyday language.
 **UI Component System**
 - **shadcn/ui** (New York variant) as the base design system, built on Radix UI primitives
 - **Tailwind CSS** for utility-first styling with custom design tokens
-- **Material Design 3** principles guide the overall design approach with controlled glassmorphism
-- Custom CSS variables in HSL format enable theme customization and dark mode support
-- Typography uses Inter for UI elements and Poppins for display/headers
-- Modern effects: glow animations on primary CTAs, backdrop-blur glass morphism on hero cards
-- Smooth transitions: pop-on-click, fade-in animations, subtle hover elevations
+- **Futuristic Glassmorphism Design System**:
+  - Pure black background (#000000) for high-tech aesthetic
+  - Transparent glass cards with `backdrop-filter: blur(20px)` and `rgba(255, 255, 255, 0.05)` backgrounds
+  - Neon cyan primary accents (hsl(180 100% 50%)) with electric blue secondary (hsl(210 100% 50%))
+  - Custom utility classes: `.glass-card`, `.neon-glow`, `.neon-border`, `.pop-hover`
+  - Typography: Space Grotesk for body text, Orbitron for futuristic display headers
+  - Animated 3D parallax background with 12 floating academic icons responding to mouse movement
+  - Interactive hover effects: neon border glow, card elevation, smooth pop animations
+  - Smooth transitions and micro-interactions for modern UX
 
 **State Management Strategy**
 - Server state managed via TanStack Query with infinite stale time

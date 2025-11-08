@@ -6,6 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import LandingPage from "@/pages/LandingPage";
 import Dashboard from "@/pages/Dashboard";
 import AssessmentPage from "@/pages/AssessmentPage";
+import CoursesPage from "@/pages/CoursesPage";
+import MentorPage from "@/pages/MentorPage";
+import SchedulePage from "@/pages/SchedulePage";
 import OnboardingFlow from "@/components/OnboardingFlow";
 import NotFound from "@/pages/not-found";
 
@@ -43,6 +46,9 @@ function Router() {
       )} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/assessments" component={AssessmentPage} />
+      <Route path="/courses" component={CoursesPage} />
+      <Route path="/mentor" component={MentorPage} />
+      <Route path="/schedule" component={SchedulePage} />
       <Route component={NotFound} />
     </Switch>
   );

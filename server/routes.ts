@@ -345,52 +345,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // AI Chat endpoint
-  app.post("/api/chat", async (req: Request, res: Response) => {
-    try {
-      const { userId, message, history } = req.body;
-      
-      if (!userId || !message) {
-        return res.status(400).json({ error: "User ID and message are required" });
-      }
-
-      // Get user's context (skill levels, enrolled courses)
-      const skills = await storage.getUserSkillLevels(userId);
-      const courses = await storage.getUserCourses(userId);
-      
-      const systemPrompt = `You are an AI learning mentor. Help users with their learning journey.
-      
-      User's skill levels: ${skills.map(s => `${s.domain}: ${s.skillLevel}`).join(', ')}
-      Enrolled courses: ${courses.length}
-      
-      Provide personalized advice, answer questions about their learning path, suggest study strategies, 
-      and help them stay motivated. Be encouraging and supportive.`;
-
-      const messages = [
-        { role: "system" as const, content: systemPrompt },
-        ...(history || []),
-        { role: "user" as const, content: message }
-      ];
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages,
-        temperature: 0.7,
-        max_tokens: 500
-      });
-
-      const response = completion.choices[0].message.content;
-
-      // Save messages to database
-      await storage.saveChatMessage({ userId, role: "user", content: message });
-      await storage.saveChatMessage({ userId, role: "assistant", content: response || "" });
-
-      res.json({ response });
-    } catch (error) {
-      console.error("Error in chat:", error);
-      res.status(500).json({ error: "Failed to process chat message" });
-    }
-  });
 
   // Get chat history
   app.get("/api/user/:userId/chat-history", async (req: Request, res: Response) => {
@@ -453,6 +407,367 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating schedule:", error);
       res.status(500).json({ error: "Failed to update schedule" });
+    }
+  });
+
+  // Get course recommendations for user
+  app.get("/api/courses/recommendations/:userId/:domain?", async (req: Request, res: Response) => {
+    try {
+      const { userId, domain } = req.params;
+      
+      // Get user skill levels to provide better recommendations
+      const skillLevels = await storage.getUserSkillLevels(userId);
+      
+      // If domain specified, filter to that domain
+      const targetDomain = domain || (skillLevels.length > 0 ? skillLevels[0].domain : 'Web Development');
+      const skillLevel = skillLevels.find(s => s.domain === targetDomain)?.skillLevel || 'Beginner';
+      
+      // Generate course recommendations using AI
+      try {
+        const prompt = `Recommend 9 high-quality courses for learning ${targetDomain} at ${skillLevel} level.
+        Include MOSTLY FREE options (at least 6 free courses), with a few premium paid options.
+        
+        For each course provide realistic information:
+        - title: Actual course name
+        - provider: Real platform (Coursera, freeCodeCamp, YouTube, Udemy, edX, Khan Academy, etc.)
+        - url: Realistic URL format for that platform
+        - isFree: true for free courses, false for paid
+        - price: 0 for free, realistic price for paid courses
+        - rating: 4.0-5.0
+        - duration: Realistic duration (e.g., "4 weeks", "20 hours", "Self-paced")
+        - description: Brief but informative description (max 150 characters)
+        - skillLevel: ${skillLevel}
+        - domain: ${targetDomain}
+        
+        Return ONLY valid JSON:
+        {
+          "courses": [
+            {
+              "id": "unique-id",
+              "title": "Course Title",
+              "provider": "Platform Name",
+              "url": "https://platform.com/course",
+              "domain": "${targetDomain}",
+              "skillLevel": "${skillLevel}",
+              "price": 0,
+              "rating": 4.5,
+              "duration": "4 weeks",
+              "description": "Brief description",
+              "isFree": true
+            }
+          ]
+        }`;
+
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: "You are a learning path expert. Recommend real, high-quality courses from reputable platforms. Emphasize free courses." },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.8,
+        });
+
+        const data = JSON.parse(completion.choices[0].message.content || "{}");
+        res.json({ courses: data.courses || [] });
+      } catch (aiError) {
+        console.error("AI course recommendation failed, using fallback:", aiError);
+        // Fallback recommendations
+        const fallbackCourses = [
+          {
+            id: `${targetDomain}-free-1`,
+            title: `Introduction to ${targetDomain}`,
+            provider: "freeCodeCamp",
+            url: "https://www.freecodecamp.org",
+            domain: targetDomain,
+            skillLevel: skillLevel,
+            price: 0,
+            rating: 4.8,
+            duration: "Self-paced",
+            description: `Learn the fundamentals of ${targetDomain} with hands-on projects`,
+            isFree: true
+          },
+          {
+            id: `${targetDomain}-free-2`,
+            title: `${targetDomain} Crash Course`,
+            provider: "YouTube",
+            url: "https://www.youtube.com",
+            domain: targetDomain,
+            skillLevel: skillLevel,
+            price: 0,
+            rating: 4.7,
+            duration: "3-5 hours",
+            description: `Quick introduction to ${targetDomain} concepts`,
+            isFree: true
+          },
+          {
+            id: `${targetDomain}-free-3`,
+            title: `Complete ${targetDomain} Guide`,
+            provider: "Coursera",
+            url: "https://www.coursera.org",
+            domain: targetDomain,
+            skillLevel: skillLevel,
+            price: 0,
+            rating: 4.6,
+            duration: "4 weeks",
+            description: `Comprehensive ${skillLevel} level ${targetDomain} course`,
+            isFree: true
+          },
+          {
+            id: `${targetDomain}-paid-1`,
+            title: `Advanced ${targetDomain} Masterclass`,
+            provider: "Udemy",
+            url: "https://www.udemy.com",
+            domain: targetDomain,
+            skillLevel: skillLevel,
+            price: 49.99,
+            rating: 4.9,
+            duration: "20 hours",
+            description: `Deep dive into ${targetDomain} with real-world projects`,
+            isFree: false
+          }
+        ];
+        res.json({ courses: fallbackCourses });
+      }
+    } catch (error) {
+      console.error("Error getting course recommendations:", error);
+      res.status(500).json({ error: "Failed to get recommendations" });
+    }
+  });
+
+  // Enroll in course (simplified version for frontend)
+  app.post("/api/courses/enroll", async (req: Request, res: Response) => {
+    try {
+      const { userId, courseId } = req.body;
+      
+      if (!userId || !courseId) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // For MVP, just create a simple enrollment record
+      // In production, this would fetch course details and create proper enrollment
+      const enrollment = await storage.enrollCourse({
+        userId,
+        courseTitle: "Course " + courseId,
+        coursePlatform: "Platform",
+        courseUrl: "https://example.com",
+        domain: "General",
+        isPaid: false,
+        progress: 0,
+        completed: false
+      });
+
+      res.json(enrollment);
+    } catch (error) {
+      console.error("Error enrolling:", error);
+      res.status(500).json({ error: "Failed to enroll" });
+    }
+  });
+
+  // Get enrolled courses
+  app.get("/api/user/:userId/enrolled", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const courses = await storage.getUserCourses(userId);
+      res.json({ courses });
+    } catch (error) {
+      console.error("Error fetching enrolled courses:", error);
+      res.status(500).json({ error: "Failed to fetch enrolled courses", courses: [] });
+    }
+  });
+
+  // Get schedule items
+  app.get("/api/schedule/:userId", async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const schedules = await storage.getUserSchedules(userId);
+      
+      // Transform to match frontend expectations
+      const items = schedules.map(s => ({
+        id: s.id,
+        title: s.title,
+        type: 'module' as const,
+        date: s.dueDate ? new Date(s.dueDate).toLocaleDateString() : 'No date',
+        time: '10:00 AM',
+        duration: '1 hour',
+        course: s.description || 'Self Study',
+        completed: s.completed
+      }));
+      
+      res.json({ items });
+    } catch (error) {
+      console.error("Error fetching schedule:", error);
+      res.status(500).json({ error: "Failed to fetch schedule", items: [] });
+    }
+  });
+
+  // Generate AI schedule
+  app.post("/api/schedule/generate", async (req: Request, res: Response) => {
+    try {
+      const { userId, goals } = req.body;
+      
+      if (!userId || !goals) {
+        return res.status(400).json({ error: "User ID and goals are required" });
+      }
+
+      // Get user context
+      const skills = await storage.getUserSkillLevels(userId);
+      const courses = await storage.getUserCourses(userId);
+      
+      let scheduleItems = [];
+      
+      try {
+        const prompt = `Create a personalized learning schedule based on these goals: "${goals}"
+        
+        User's current skills: ${skills.map(s => `${s.domain} (${s.skillLevel})`).join(', ')}
+        Enrolled courses: ${courses.length}
+        
+        Generate 5-7 specific learning tasks/milestones spread over the next 2-4 weeks.
+        Each item should be actionable and time-bound.
+        
+        Return ONLY valid JSON:
+        {
+          "scheduleItems": [
+            {
+              "title": "Specific task or milestone",
+              "description": "Course or study area",
+              "dueDate": "2025-11-15"
+            }
+          ]
+        }`;
+
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: "You are a learning schedule expert. Create realistic, achievable learning plans." },
+            { role: "user", content: prompt }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+        });
+
+        const data = JSON.parse(completion.choices[0].message.content || "{}");
+        scheduleItems = data.scheduleItems || [];
+      } catch (aiError) {
+        console.error("AI schedule generation failed, using fallback:", aiError);
+        // Fallback schedule
+        const today = new Date();
+        scheduleItems = [
+          {
+            title: "Review core concepts and fundamentals",
+            description: "Self study",
+            dueDate: new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          },
+          {
+            title: "Complete practice exercises",
+            description: "Hands-on practice",
+            dueDate: new Date(today.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          },
+          {
+            title: "Build a small project",
+            description: "Practical application",
+            dueDate: new Date(today.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          },
+          {
+            title: "Review and refine skills",
+            description: "Self study",
+            dueDate: new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+          }
+        ];
+      }
+      
+      // Create schedule items in database
+      for (const item of scheduleItems) {
+        await storage.createSchedule({
+          userId,
+          courseId: null,
+          title: item.title,
+          description: item.description,
+          dueDate: new Date(item.dueDate),
+          completed: false
+        });
+      }
+
+      res.json({ success: true, itemsCreated: scheduleItems.length });
+    } catch (error) {
+      console.error("Error generating schedule:", error);
+      res.status(500).json({ error: "Failed to generate schedule" });
+    }
+  });
+
+  // Complete schedule item
+  app.post("/api/schedule/:itemId/complete", async (req: Request, res: Response) => {
+    try {
+      const { itemId } = req.params;
+      await storage.updateScheduleCompletion(itemId, true);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error completing schedule item:", error);
+      res.status(500).json({ error: "Failed to complete item" });
+    }
+  });
+
+  // Chat with AI mentor
+  app.post("/api/chat", async (req: Request, res: Response) => {
+    try {
+      const { userId, message, conversationHistory } = req.body;
+      
+      if (!userId || !message) {
+        return res.status(400).json({ error: "User ID and message are required" });
+      }
+
+      // Get user context
+      const skills = await storage.getUserSkillLevels(userId);
+      const courses = await storage.getUserCourses(userId);
+      
+      let response = "";
+      
+      try {
+        const systemPrompt = `You are an AI learning mentor helping a student on their learning journey.
+        
+        Student's skills: ${skills.map(s => `${s.domain} (${s.skillLevel})`).join(', ')}
+        Enrolled in ${courses.length} courses
+        
+        Provide personalized guidance, answer questions, suggest study strategies, and keep them motivated.
+        Be encouraging, specific, and actionable. Keep responses concise (2-3 paragraphs max).`;
+
+        const messages = [
+          { role: "system" as const, content: systemPrompt },
+          ...(conversationHistory || []),
+          { role: "user" as const, content: message }
+        ];
+
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages,
+          temperature: 0.7,
+          max_tokens: 400
+        });
+
+        response = completion.choices[0].message.content || "";
+      } catch (aiError) {
+        console.error("AI chat failed, using fallback:", aiError);
+        // Fallback responses based on common questions
+        const lowerMessage = message.toLowerCase();
+        if (lowerMessage.includes('motivat') || lowerMessage.includes('stuck') || lowerMessage.includes('difficult')) {
+          response = "Learning can be challenging, but you're making great progress! Remember that every expert was once a beginner. Take it one step at a time, celebrate small wins, and don't be afraid to ask for help. You've got this!";
+        } else if (lowerMessage.includes('next') || lowerMessage.includes('what should') || lowerMessage.includes('recommend')) {
+          response = `Based on your current skill levels, I'd recommend focusing on building practical projects. Hands-on experience is one of the best ways to solidify your knowledge. Check out the courses page for some great resources tailored to your level!`;
+        } else if (lowerMessage.includes('schedule') || lowerMessage.includes('plan') || lowerMessage.includes('time')) {
+          response = "Creating a consistent learning schedule is key to success! Try dedicating specific time blocks each day, even if it's just 30 minutes. Use the Schedule feature to plan your learning milestones and track your progress.";
+        } else {
+          response = "I'm here to support your learning journey! I can help you with study strategies, course recommendations, staying motivated, or planning your learning schedule. What would you like to focus on today?";
+        }
+      }
+
+      // Save to database
+      await storage.saveChatMessage({ userId, role: "user", content: message });
+      await storage.saveChatMessage({ userId, role: "assistant", content: response });
+
+      res.json({ response });
+    } catch (error) {
+      console.error("Error in chat:", error);
+      res.status(500).json({ error: "Failed to process message" });
     }
   });
 

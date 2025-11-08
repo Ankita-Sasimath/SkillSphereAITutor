@@ -10,8 +10,12 @@ interface QuizQuestionProps {
   totalQuestions: number;
   question: string;
   options: string[];
-  onNext: (answer: string) => void;
+  selectedAnswer?: number;
+  onSelectAnswer?: (index: number) => void;
+  onNext: (answer?: string) => void;
   onPrevious?: () => void;
+  canProceed?: boolean;
+  isSubmitting?: boolean;
 }
 
 export default function QuizQuestion({
@@ -19,16 +23,32 @@ export default function QuizQuestion({
   totalQuestions,
   question,
   options,
+  selectedAnswer: propSelectedAnswer,
+  onSelectAnswer,
   onNext,
-  onPrevious
+  onPrevious,
+  canProceed = true,
+  isSubmitting = false
 }: QuizQuestionProps) {
-  const [selectedAnswer, setSelectedAnswer] = useState<string>("");
+  const [localSelectedAnswer, setLocalSelectedAnswer] = useState<string>("");
+  
+  const selectedAnswer = propSelectedAnswer !== undefined ? propSelectedAnswer : -1;
+  
+  const handleAnswerChange = (value: string) => {
+    const index = options.indexOf(value);
+    if (onSelectAnswer) {
+      onSelectAnswer(index);
+    } else {
+      setLocalSelectedAnswer(value);
+    }
+  };
 
   const handleNext = () => {
-    if (selectedAnswer) {
-      console.log('Selected answer:', selectedAnswer);
-      onNext(selectedAnswer);
-      setSelectedAnswer("");
+    if (onSelectAnswer) {
+      onNext();
+    } else if (localSelectedAnswer) {
+      onNext(localSelectedAnswer);
+      setLocalSelectedAnswer("");
     }
   };
 
@@ -56,7 +76,10 @@ export default function QuizQuestion({
           {question}
         </h2>
 
-        <RadioGroup value={selectedAnswer} onValueChange={setSelectedAnswer}>
+        <RadioGroup 
+          value={selectedAnswer >= 0 ? options[selectedAnswer] : localSelectedAnswer} 
+          onValueChange={handleAnswerChange}
+        >
           <div className="space-y-3">
             {options.map((option, index) => (
               <Label
@@ -85,11 +108,11 @@ export default function QuizQuestion({
         
         <Button 
           onClick={handleNext} 
-          disabled={!selectedAnswer}
+          disabled={!canProceed || isSubmitting}
           data-testid="button-next"
         >
-          {questionNumber === totalQuestions ? "Submit" : "Next"}
-          <ChevronRight className="h-4 w-4 ml-2" />
+          {isSubmitting ? "Submitting..." : questionNumber === totalQuestions ? "Submit Quiz" : "Next Question"}
+          {!isSubmitting && <ChevronRight className="h-4 w-4 ml-2" />}
         </Button>
       </div>
     </div>

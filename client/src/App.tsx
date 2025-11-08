@@ -14,9 +14,31 @@ function Router() {
     <Switch>
       <Route path="/" component={LandingPage} />
       <Route path="/onboarding" component={() => (
-        <OnboardingFlow onComplete={(data) => {
-          console.log('Onboarding complete:', data);
-          window.location.href = '/dashboard';
+        <OnboardingFlow onComplete={async (data) => {
+          try {
+            console.log('Onboarding complete:', data);
+            
+            // Save user to backend
+            const response = await fetch('/api/user/onboard', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: data.name, domains: data.domains })
+            });
+            
+            if (!response.ok) throw new Error('Failed to onboard user');
+            
+            const result = await response.json();
+            
+            // Store user data
+            localStorage.setItem('userId', result.userId);
+            localStorage.setItem('selectedDomains', JSON.stringify(data.domains));
+            localStorage.setItem('userName', data.name);
+            
+            window.location.href = '/assessments';
+          } catch (error) {
+            console.error('Onboarding error:', error);
+            alert('Failed to complete onboarding. Please try again.');
+          }
         }} />
       )} />
       <Route path="/dashboard" component={Dashboard} />

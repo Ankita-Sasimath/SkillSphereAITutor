@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
+import { ChevronRight, ChevronLeft, Sparkles, Brain } from "lucide-react";
 
 const DOMAINS = [
   "Web Development",
@@ -18,21 +17,14 @@ const DOMAINS = [
   "UI/UX Design"
 ];
 
-const SKILL_LEVELS = [
-  { value: "beginner", label: "Beginner", description: "Just starting out" },
-  { value: "intermediate", label: "Intermediate", description: "Some experience" },
-  { value: "advanced", label: "Advanced", description: "Expert level" }
-];
-
 interface OnboardingFlowProps {
-  onComplete: (data: { domains: string[]; skillLevel: string; name: string }) => void;
+  onComplete: (data: { domains: string[]; name: string }) => void;
 }
 
 export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
-  const [skillLevel, setSkillLevel] = useState("");
 
   const toggleDomain = (domain: string) => {
     setSelectedDomains(prev =>
@@ -43,18 +35,17 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   const handleNext = () => {
-    if (step < 3) {
+    if (step < 2) {
       setStep(step + 1);
     } else {
-      console.log('Onboarding complete:', { name, selectedDomains, skillLevel });
-      onComplete({ domains: selectedDomains, skillLevel, name });
+      console.log('Onboarding complete:', { name, selectedDomains });
+      onComplete({ domains: selectedDomains, name });
     }
   };
 
   const canProceed = () => {
     if (step === 1) return name.trim().length > 0;
     if (step === 2) return selectedDomains.length > 0;
-    if (step === 3) return skillLevel.length > 0;
     return false;
   };
 
@@ -62,7 +53,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-2xl">
         <div className="mb-8 flex items-center justify-center gap-2">
-          {[1, 2, 3].map((s) => (
+          {[1, 2].map((s) => (
             <div
               key={s}
               className={`h-2 rounded-full transition-all ${
@@ -100,11 +91,14 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           {step === 2 && (
             <div className="space-y-6">
               <div className="text-center mb-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+                  <Brain className="h-8 w-8 text-primary" />
+                </div>
                 <h2 className="font-display font-bold text-3xl mb-2">Choose Your Interests</h2>
                 <p className="text-muted-foreground">Select domains you'd like to explore</p>
               </div>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3 justify-center">
                 {DOMAINS.map((domain) => (
                   <Badge
                     key={domain}
@@ -117,34 +111,19 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   </Badge>
                 ))}
               </div>
-            </div>
-          )}
 
-          {step === 3 && (
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <h2 className="font-display font-bold text-3xl mb-2">Your Skill Level</h2>
-                <p className="text-muted-foreground">How would you describe your current expertise?</p>
-              </div>
-
-              <RadioGroup value={skillLevel} onValueChange={setSkillLevel}>
-                <div className="space-y-3">
-                  {SKILL_LEVELS.map((level) => (
-                    <Label
-                      key={level.value}
-                      htmlFor={level.value}
-                      className="flex items-start gap-4 p-4 rounded-md border cursor-pointer hover-elevate"
-                      data-testid={`skill-level-${level.value}`}
-                    >
-                      <RadioGroupItem value={level.value} id={level.value} className="mt-1" />
-                      <div>
-                        <div className="font-semibold text-foreground mb-1">{level.label}</div>
-                        <div className="text-sm text-muted-foreground">{level.description}</div>
-                      </div>
-                    </Label>
-                  ))}
+              <div className="mt-8 p-4 rounded-md bg-primary/5 border border-primary/20">
+                <div className="flex items-start gap-3">
+                  <Brain className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-foreground mb-1">What's Next?</h3>
+                    <p className="text-sm text-muted-foreground">
+                      We'll generate a personalized quiz to assess your skill level in the domains you've selected. 
+                      This helps us recommend the perfect courses for your learning journey.
+                    </p>
+                  </div>
                 </div>
-              </RadioGroup>
+              </div>
             </div>
           )}
 
@@ -159,7 +138,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             )}
             
             <Button onClick={handleNext} disabled={!canProceed()} data-testid="button-continue">
-              {step === 3 ? "Complete Setup" : "Continue"}
+              {step === 2 ? "Start Assessment" : "Continue"}
               <ChevronRight className="h-4 w-4 ml-2" />
             </Button>
           </div>

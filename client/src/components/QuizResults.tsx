@@ -7,7 +7,8 @@ interface QuizResultsProps {
   score: number;
   totalQuestions: number;
   skillLevel: "Beginner" | "Intermediate" | "Advanced";
-  topicBreakdown: { topic: string; correct: number; total: number }[];
+  domain?: string;
+  topicBreakdown?: { topic: string; correct: number; total: number }[];
   onViewCourses: () => void;
 }
 
@@ -15,6 +16,7 @@ export default function QuizResults({
   score,
   totalQuestions,
   skillLevel,
+  domain,
   topicBreakdown,
   onViewCourses
 }: QuizResultsProps) {
@@ -51,7 +53,7 @@ export default function QuizResults({
         </h2>
         
         <p className="text-muted-foreground mb-4">
-          Based on your performance, you're at a{" "}
+          Based on your performance{domain ? ` in ${domain}` : ""}, you're at a{" "}
           <Badge variant="outline" className={levelColors[skillLevel]} data-testid="skill-level-badge">
             {skillLevel}
           </Badge>
@@ -64,39 +66,41 @@ export default function QuizResults({
         </Button>
       </Card>
 
-      <Card className="p-6">
-        <h3 className="font-display font-semibold text-xl mb-4">Topic Breakdown</h3>
-        <div className="space-y-4">
-          {topicBreakdown.map((topic, index) => {
-            const topicPercentage = Math.round((topic.correct / topic.total) * 100);
-            return (
-              <div key={index} className="flex items-center justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-foreground" data-testid={`topic-name-${index}`}>
-                      {topic.topic}
-                    </span>
-                    <span className="text-sm text-muted-foreground" data-testid={`topic-score-${index}`}>
-                      {topic.correct}/{topic.total}
-                    </span>
+      {topicBreakdown && topicBreakdown.length > 0 && (
+        <Card className="p-6">
+          <h3 className="font-display font-semibold text-xl mb-4">Topic Breakdown</h3>
+          <div className="space-y-4">
+            {topicBreakdown.map((topic, index) => {
+              const topicPercentage = Math.round((topic.correct / topic.total) * 100);
+              return (
+                <div key={index} className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-foreground" data-testid={`topic-name-${index}`}>
+                        {topic.topic}
+                      </span>
+                      <span className="text-sm text-muted-foreground" data-testid={`topic-score-${index}`}>
+                        {topic.correct}/{topic.total}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary transition-all"
+                        style={{ width: `${topicPercentage}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${topicPercentage}%` }}
-                    />
-                  </div>
+                  {topicPercentage >= 70 ? (
+                    <CheckCircle2 className="h-5 w-5 text-chart-3 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                  )}
                 </div>
-                {topicPercentage >= 70 ? (
-                  <CheckCircle2 className="h-5 w-5 text-chart-3 flex-shrink-0" />
-                ) : (
-                  <XCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </Card>
+              );
+            })}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

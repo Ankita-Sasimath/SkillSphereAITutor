@@ -864,11 +864,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const skills = await storage.getUserSkillLevels(userId);
       const courses = await storage.getUserCourses(userId);
-      const quizHistory = await db.select()
-        .from(quizAttempts)
-        .where(eq(quizAttempts.userId, userId))
-        .orderBy(desc(quizAttempts.completedAt))
-        .limit(1);
+      const quizHistory = await storage.getUserQuizAttempts(userId);
       
       const completedCourses = courses.filter(c => c.completed);
       const inProgressCourses = courses.filter(c => !c.completed && (c.progress || 0) > 0);
@@ -942,11 +938,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get comprehensive user context
       const skills = await storage.getUserSkillLevels(userId);
       const courses = await storage.getUserCourses(userId);
-      const quizHistory = await db.select()
-        .from(quizAttempts)
-        .where(eq(quizAttempts.userId, userId))
-        .orderBy(desc(quizAttempts.completedAt))
-        .limit(5);
+      const allQuizHistory = await storage.getUserQuizAttempts(userId);
+      const quizHistory = allQuizHistory.slice(0, 5); // Get latest 5
       
       // Analyze learning progress
       const completedCourses = courses.filter(c => c.completed);

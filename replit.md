@@ -4,6 +4,15 @@
 
 SkillPath is an AI-powered educational platform that provides personalized skill assessments and training recommendations. The platform uses adaptive quizzes to determine user skill levels, generates customized course recommendations, and includes an AI chatbot mentor to guide learners through their educational journey. Users can track their progress across multiple learning domains, manage their course enrollments, and schedule learning activities.
 
+**Latest Enhancements (November 2025)**
+- Secure authentication with protected routes and user profile management
+- Expanded learning domains: IoT, Space Technology, and Hardware
+- Enhanced quiz results with detailed feedback showing correct/incorrect answers
+- AI Mentor auto-assignment with proactive quiz and course recommendations
+- Context-aware AI chat with access to user skills, courses, and quiz history
+- Modern glassmorphism UI with controlled glow effects on primary CTAs
+- Improved responsive design across all breakpoints
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -21,9 +30,11 @@ Preferred communication style: Simple, everyday language.
 **UI Component System**
 - **shadcn/ui** (New York variant) as the base design system, built on Radix UI primitives
 - **Tailwind CSS** for utility-first styling with custom design tokens
-- **Material Design 3** principles guide the overall design approach
+- **Material Design 3** principles guide the overall design approach with controlled glassmorphism
 - Custom CSS variables in HSL format enable theme customization and dark mode support
 - Typography uses Inter for UI elements and Poppins for display/headers
+- Modern effects: glow animations on primary CTAs, backdrop-blur glass morphism on hero cards
+- Smooth transitions: pop-on-click, fade-in animations, subtle hover elevations
 
 **State Management Strategy**
 - Server state managed via TanStack Query with infinite stale time
@@ -64,6 +75,10 @@ Preferred communication style: Simple, everyday language.
 - Fallback quiz data ensures graceful degradation if AI service fails
 - Quiz questions generated based on user's selected learning domains
 - AI determines skill levels (Beginner/Intermediate/Advanced) from quiz performance
+- **Context-Aware AI Mentor** with comprehensive user context (skills, courses, quiz history)
+- **Proactive Recommendations** via `/api/mentor/recommendations/:userId` endpoint
+- Auto-assigned quizzes after course completion and for unevaluated domains
+- Smart course suggestions based on user enrollment patterns and skill gaps
 
 ### Data Storage Solutions
 

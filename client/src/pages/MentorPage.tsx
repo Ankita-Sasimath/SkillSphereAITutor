@@ -5,7 +5,6 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Send, Bot, User, Loader2, Sparkles, ArrowRight, Target } from "lucide-react";
@@ -36,7 +35,7 @@ export default function MentorPage() {
     }
   ]);
   const [input, setInput] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const userId = localStorage.getItem('userId') || 'demo-user-123';
   const userName = localStorage.getItem('userName') || 'User';
@@ -102,9 +101,8 @@ export default function MentorPage() {
   };
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    // Scroll to bottom when messages change
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const recommendations = recommendationsData?.recommendations || [];
@@ -162,7 +160,7 @@ export default function MentorPage() {
             </div>
           </div>
 
-          <ScrollArea className="flex-1 p-6" ref={scrollRef}>
+          <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-6">
               {messages.map((message) => (
                 <div
@@ -207,8 +205,11 @@ export default function MentorPage() {
                   </div>
                 </div>
               )}
+              
+              {/* Invisible div to scroll to */}
+              <div ref={messagesEndRef} />
             </div>
-          </ScrollArea>
+          </div>
 
           <form onSubmit={handleSubmit} className="p-6 border-t bg-card/50 backdrop-blur-sm">
             <div className="flex gap-3">

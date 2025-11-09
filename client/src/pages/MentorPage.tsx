@@ -1,13 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { useMutation } from "@tanstack/react-query";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Send, Bot, User, Loader2, Sparkles, ArrowRight, Target } from "lucide-react";
+import { Send, Bot, User, Loader2, Sparkles } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 interface Message {
@@ -15,14 +13,6 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-}
-
-interface Recommendation {
-  type: string;
-  title: string;
-  description: string;
-  action: string;
-  link: string;
 }
 
 export default function MentorPage() {
@@ -39,12 +29,6 @@ export default function MentorPage() {
 
   const userId = localStorage.getItem('userId') || 'demo-user-123';
   const userName = localStorage.getItem('userName') || 'User';
-  
-  // Fetch personalized recommendations
-  const { data: recommendationsData } = useQuery<{ recommendations: Recommendation[] }>({
-    queryKey: [`/api/mentor/recommendations/${userId}`],
-    enabled: !!userId,
-  });
 
   const chatMutation = useMutation({
     mutationFn: async (userMessage: string) => {
@@ -105,49 +89,10 @@ export default function MentorPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const recommendations = recommendationsData?.recommendations || [];
-
   return (
     <DashboardLayout userName={userName}>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div>
-          <h1 className="font-display font-bold text-3xl mb-2" data-testid="page-title">
-            AI Learning Mentor
-          </h1>
-          <p className="text-muted-foreground">
-            Get personalized guidance and answers to your learning questions
-          </p>
-        </div>
-
-        {/* Proactive Recommendations - Larger and more readable */}
-        {recommendations.length > 0 && (
-          <div className="grid sm:grid-cols-2 gap-6">
-            {recommendations.map((rec, index) => (
-              <Card key={index} className="glass-card p-6 neon-border hover:border-primary/60 transition-all" data-testid={`recommendation-${index}`}>
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-lg bg-primary/10 flex-shrink-0">
-                    <Target className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-lg text-foreground">{rec.title}</h3>
-                      <Badge variant="outline" className="text-sm bg-primary/10 text-primary border-primary/30">{rec.type}</Badge>
-                    </div>
-                    <p className="text-base text-foreground/80 mb-4 leading-relaxed">{rec.description}</p>
-                    <Link href={rec.link}>
-                      <Button size="default" variant="default" className="w-full glow-primary" data-testid={`button-${rec.action.toLowerCase().replace(/\s+/g, '-')}`}>
-                        {rec.action}
-                        <ArrowRight className="h-4 w-4 ml-2" />
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        <Card className={`flex flex-col ${recommendations.length > 0 ? 'h-[calc(100vh-26rem)]' : 'h-[calc(100vh-16rem)]'}`}>
+      <div className="h-[calc(100vh-8rem)] max-w-5xl mx-auto">
+        <Card className="flex flex-col h-full">
           <div className="p-6 border-b bg-card/50 backdrop-blur-sm">
             <div className="flex items-center gap-4">
               <div className="p-3 rounded-full bg-primary/10">

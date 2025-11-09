@@ -45,6 +45,9 @@ SkillPath is an AI-powered educational platform that provides personalized skill
     - Improved frontend error handling with graceful fallback messages
     - More conversational responses with higher temperature (0.8) and longer max tokens (500)
     - Better error messages displayed in chat interface when connectivity issues occur
+    - **Simplified full-chat layout**: Removed recommendation cards to dedicate entire page to chat conversation
+    - Fixed message display issue by replacing ScrollArea with standard scrollable div
+    - Chat now takes full viewport height with cleaner, more focused interface
 
 ## User Preferences
 

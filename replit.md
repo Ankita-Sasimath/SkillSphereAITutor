@@ -38,6 +38,13 @@ SkillPath is an AI-powered educational platform that provides personalized skill
     - Continuous floating animation with cyan glow effects and hover interactions
     - Mobile-optimized: 3D image hidden on smaller screens to preserve text focus
     - Background opacity reduced to 25% to enhance 3D image visibility while maintaining text clarity
+  - **AI Mentor Reliability Improvements (November 9, 2025)**:
+    - Increased OpenAI timeout from 15s to 30s for better reliability
+    - Added retry mechanism (1 retry) to handle intermittent connection issues
+    - Enhanced chat timeout to 25s specifically for user-facing interactions
+    - Improved frontend error handling with graceful fallback messages
+    - More conversational responses with higher temperature (0.8) and longer max tokens (500)
+    - Better error messages displayed in chat interface when connectivity issues occur
 
 ## User Preferences
 

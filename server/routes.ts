@@ -7,8 +7,8 @@ import bcrypt from "bcryptjs";
 
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY,
-  timeout: 15000, // 15 second timeout
-  maxRetries: 0 // No retries, fail fast and use fallbacks
+  timeout: 30000, // 30 second timeout for better reliability
+  maxRetries: 1 // One retry for chat to be more reliable
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1088,6 +1088,8 @@ YOUR ROLE:
 - Guide users through their learning journey step-by-step
 - Explain how each platform feature helps them achieve their learning goals
 - Be encouraging, specific, and motivating
+- Answer questions clearly and conversationally
+- Keep responses friendly, helpful, and encouraging
 
 HOW THE PLATFORM WORKS:
 1. Take skill assessments (Assessments page) to determine current level
@@ -1097,7 +1099,7 @@ HOW THE PLATFORM WORKS:
 5. Chat with AI mentor for guidance and support (this page)
 6. Retake quizzes as you learn to track improvement
 
-Keep responses clear and readable (2-3 short paragraphs). Focus on next actionable steps.`;
+Keep responses conversational, clear, and engaging (2-4 paragraphs). Always be helpful and specific.`;
 
         const messages = [
           { role: "system" as const, content: systemPrompt },
@@ -1108,8 +1110,10 @@ Keep responses clear and readable (2-3 short paragraphs). Focus on next actionab
         const completion = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages,
-          temperature: 0.7,
-          max_tokens: 400
+          temperature: 0.8, // More conversational
+          max_tokens: 500 // Longer responses for better engagement
+        }, {
+          timeout: 25000 // Give chat extra time (25 seconds)
         });
 
         response = completion.choices[0].message.content || "";
@@ -1142,9 +1146,14 @@ Keep responses clear and readable (2-3 short paragraphs). Focus on next actionab
         }
       }
 
-      // Save to database
-      await storage.saveChatMessage({ userId, role: "user", content: message });
-      await storage.saveChatMessage({ userId, role: "assistant", content: response });
+      // Save to database (gracefully handle if user doesn't exist)
+      try {
+        await storage.saveChatMessage({ userId, role: "user", content: message });
+        await storage.saveChatMessage({ userId, role: "assistant", content: response });
+      } catch (saveError) {
+        // Log but don't fail - chat should work even if persistence fails
+        console.warn("Could not save chat messages (user may not exist in DB):", saveError);
+      }
 
       res.json({ response });
     } catch (error) {

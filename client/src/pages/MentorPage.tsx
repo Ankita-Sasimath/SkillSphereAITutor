@@ -54,16 +54,34 @@ export default function MentorPage() {
         message: userMessage,
         conversationHistory: messages.map(m => ({ role: m.role, content: m.content }))
       });
+      
+      if (!res.ok) {
+        throw new Error('Failed to get response from AI Mentor');
+      }
+      
       return await res.json();
     },
     onSuccess: (data) => {
-      const assistantMessage: Message = {
+      if (data.response) {
+        const assistantMessage: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: data.response,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      }
+    },
+    onError: (error) => {
+      // Add error message to chat
+      const errorMessage: Message = {
         id: Date.now().toString(),
         role: 'assistant',
-        content: data.response,
+        content: "I'm having trouble connecting right now, but I'm still here to help! Try asking your question again, or explore the platform features like taking a quiz or browsing courses while I reconnect.",
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages(prev => [...prev, errorMessage]);
+      console.error('Chat error:', error);
     },
   });
 

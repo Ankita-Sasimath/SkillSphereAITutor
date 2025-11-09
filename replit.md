@@ -48,6 +48,12 @@ SkillPath is an AI-powered educational platform that provides personalized skill
     - **Simplified full-chat layout**: Removed recommendation cards to dedicate entire page to chat conversation
     - Fixed message display issue by replacing ScrollArea with standard scrollable div
     - Chat now takes full viewport height with cleaner, more focused interface
+  - **Course URL Fix (November 9, 2025)**:
+    - Fixed YouTube and other course links to redirect to specific courses instead of platform homepages
+    - Added domain-specific URLs for all 8 learning domains (Web Dev, ML, Data Science, Mobile, Cybersecurity, IoT, Space Tech, Hardware)
+    - Enhanced AI prompt to request specific direct URLs (YouTube: youtube.com/watch?v=ID format)
+    - Fallback courses now include real course links for popular tutorials on each platform
+    - Search query fallback for unmapped domains ensures users always get relevant results
 
 ## User Preferences
 

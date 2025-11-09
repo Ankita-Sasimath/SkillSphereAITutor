@@ -658,7 +658,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         For each course provide realistic information:
         - title: Actual course name
         - provider: Real platform (Coursera, freeCodeCamp, YouTube, Udemy, edX, Khan Academy, etc.)
-        - url: Realistic URL format for that platform
+        - url: SPECIFIC DIRECT URL to the actual course (e.g., for YouTube use https://www.youtube.com/watch?v=VIDEO_ID, for Coursera use https://www.coursera.org/learn/course-name, for Udemy use https://www.udemy.com/course/course-name)
         - isFree: true for free courses, false for paid
         - price: 0 for free, realistic price for paid courses
         - rating: 4.0-5.0
@@ -689,7 +689,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const completion = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [
-            { role: "system", content: "You are a learning path expert. Recommend real, high-quality courses from reputable platforms. Emphasize free courses." },
+            { role: "system", content: "You are a learning path expert. Recommend real, high-quality courses from reputable platforms with specific direct URLs. For YouTube, use actual video links (youtube.com/watch?v=ID). For other platforms, use full course URLs. Emphasize free courses." },
             { role: "user", content: prompt }
           ],
           response_format: { type: "json_object" },
@@ -700,13 +700,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ courses: data.courses || [] });
       } catch (aiError) {
         console.error("AI course recommendation failed, using fallback:", aiError);
-        // Fallback recommendations
+        // Fallback recommendations with realistic URLs based on domain
+        const domainUrls: Record<string, { youtube: string, freecodecamp: string, coursera: string, udemy: string }> = {
+          "Web Development": {
+            youtube: "https://www.youtube.com/watch?v=zJSY8tbf_ys",
+            freecodecamp: "https://www.freecodecamp.org/learn/2022/responsive-web-design",
+            coursera: "https://www.coursera.org/learn/html-css-javascript-for-web-developers",
+            udemy: "https://www.udemy.com/course/the-complete-web-development-bootcamp"
+          },
+          "Machine Learning": {
+            youtube: "https://www.youtube.com/watch?v=7eh4d6sabA0",
+            freecodecamp: "https://www.freecodecamp.org/learn/machine-learning-with-python",
+            coursera: "https://www.coursera.org/specializations/machine-learning-introduction",
+            udemy: "https://www.udemy.com/course/machinelearning"
+          },
+          "Data Science": {
+            youtube: "https://www.youtube.com/watch?v=ua-CiDNNj30",
+            freecodecamp: "https://www.freecodecamp.org/learn/data-analysis-with-python",
+            coursera: "https://www.coursera.org/specializations/jhu-data-science",
+            udemy: "https://www.udemy.com/course/the-data-science-course-complete-data-science-bootcamp"
+          },
+          "Mobile Development": {
+            youtube: "https://www.youtube.com/watch?v=0N1Cir0vN80",
+            freecodecamp: "https://www.freecodecamp.org/news/learn-react-native-full-course",
+            coursera: "https://www.coursera.org/specializations/android-app-development",
+            udemy: "https://www.udemy.com/course/react-native-the-practical-guide"
+          },
+          "Cybersecurity": {
+            youtube: "https://www.youtube.com/watch?v=U_P23SqJaDc",
+            freecodecamp: "https://www.freecodecamp.org/news/learn-cybersecurity-handbook",
+            coursera: "https://www.coursera.org/specializations/cyber-security",
+            udemy: "https://www.udemy.com/course/the-complete-cyber-security-course"
+          },
+          "IoT": {
+            youtube: "https://www.youtube.com/watch?v=h0gWfVCSGQQ",
+            freecodecamp: "https://www.freecodecamp.org/news/introduction-to-iot-internet-of-things",
+            coursera: "https://www.coursera.org/specializations/iot",
+            udemy: "https://www.udemy.com/course/introduction-to-iot"
+          },
+          "Space Technology": {
+            youtube: "https://www.youtube.com/watch?v=pTn6Ewhb27k",
+            freecodecamp: "https://www.freecodecamp.org/news/search?query=aerospace",
+            coursera: "https://www.coursera.org/learn/space-mission-design",
+            udemy: "https://www.udemy.com/course/introduction-to-aerospace-engineering"
+          },
+          "Hardware": {
+            youtube: "https://www.youtube.com/watch?v=fCxzA9_kg6s",
+            freecodecamp: "https://www.freecodecamp.org/news/learn-electronics-and-arduino",
+            coursera: "https://www.coursera.org/learn/build-a-computer",
+            udemy: "https://www.udemy.com/course/electronics-for-beginners"
+          }
+        };
+
+        const urls = domainUrls[targetDomain] || {
+          youtube: "https://www.youtube.com/results?search_query=" + encodeURIComponent(targetDomain + " tutorial"),
+          freecodecamp: "https://www.freecodecamp.org/news/search?query=" + encodeURIComponent(targetDomain),
+          coursera: "https://www.coursera.org/search?query=" + encodeURIComponent(targetDomain),
+          udemy: "https://www.udemy.com/courses/search/?q=" + encodeURIComponent(targetDomain)
+        };
+
         const fallbackCourses = [
           {
             id: `${targetDomain}-free-1`,
             title: `Introduction to ${targetDomain}`,
             provider: "freeCodeCamp",
-            url: "https://www.freecodecamp.org",
+            url: urls.freecodecamp,
             domain: targetDomain,
             skillLevel: skillLevel,
             price: 0,
@@ -719,7 +777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: `${targetDomain}-free-2`,
             title: `${targetDomain} Crash Course`,
             provider: "YouTube",
-            url: "https://www.youtube.com",
+            url: urls.youtube,
             domain: targetDomain,
             skillLevel: skillLevel,
             price: 0,
@@ -732,7 +790,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: `${targetDomain}-free-3`,
             title: `Complete ${targetDomain} Guide`,
             provider: "Coursera",
-            url: "https://www.coursera.org",
+            url: urls.coursera,
             domain: targetDomain,
             skillLevel: skillLevel,
             price: 0,
@@ -745,7 +803,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: `${targetDomain}-paid-1`,
             title: `Advanced ${targetDomain} Masterclass`,
             provider: "Udemy",
-            url: "https://www.udemy.com",
+            url: urls.udemy,
             domain: targetDomain,
             skillLevel: skillLevel,
             price: 49.99,

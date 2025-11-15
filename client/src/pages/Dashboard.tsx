@@ -1,15 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { 
-  BookOpen, 
-  TrendingUp, 
-  Award, 
-  Clock, 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  BookOpen,
+  TrendingUp,
+  Award,
+  Clock,
   Target,
   ArrowRight,
   FileQuestion,
@@ -17,7 +19,11 @@ import {
   MessageCircle,
   Loader2,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  Trophy,
+  Brain
 } from "lucide-react";
 import webDevImage from "@assets/generated_images/Web_development_course_thumbnail_cbc6d31e.png?url";
 import mobileDevImage from "@assets/generated_images/Mobile_development_course_thumbnail_9d7477e2.png?url";
@@ -26,19 +32,36 @@ import machineLearningImage from "@assets/generated_images/Machine_learning_cour
 import iotImage from "@assets/stock_images/iot_internet_of_thin_36bc4020.jpg?url";
 
 export default function Dashboard() {
+  const [enrolledCoursesOpen, setEnrolledCoursesOpen] = useState(false);
   const userId = localStorage.getItem('userId') || 'demo-user-123';
   const userName = localStorage.getItem('userName') || 'User';
   const selectedDomains = JSON.parse(localStorage.getItem('selectedDomains') || '[]');
 
-  // Fetch user skill levels
-  const { data: skillLevels = {} } = useQuery<Record<string, string>>({
+  // Fetch user skill levels - refetch on mount and window focus to show latest assessments
+  const { data: skillLevels = {}, refetch: refetchSkills } = useQuery<Record<string, string>>({
     queryKey: ['/api/user', userId, 'skills'],
     enabled: !!userId,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Always consider data stale to ensure fresh data
   });
+
+  // Refetch skills when component mounts to ensure we have the latest data
+  useEffect(() => {
+    if (userId) {
+      refetchSkills();
+    }
+  }, [userId, refetchSkills]);
 
   // Fetch enrolled courses
   const { data: enrolledData } = useQuery<{ courses: any[] }>({
     queryKey: ['/api/user', userId, 'enrolled'],
+    enabled: !!userId,
+  });
+
+  // Fetch quiz history for learning path metrics
+  const { data: quizHistoryData } = useQuery<any[]>({
+    queryKey: ['/api/quiz/history', userId],
     enabled: !!userId,
   });
 
@@ -51,6 +74,28 @@ export default function Dashboard() {
   const enrolledCourses = enrolledData?.courses || [];
   const upcomingSchedule = (scheduleData?.items || []).filter((item: any) => !item.completed).slice(0, 3);
   const skillsAssessed = Object.keys(skillLevels).length;
+  const quizHistory = quizHistoryData || [];
+
+  // Calculate learning path metrics
+  const totalQuizzes = quizHistory.length;
+  const averageScore = quizHistory.length > 0
+    ? Math.round(quizHistory.reduce((sum: number, quiz: any) => sum + quiz.score, 0) / quizHistory.length)
+    : 0;
+
+  // Calculate total hours spent (estimated based on course duration and quiz time)
+  const totalHours = Math.round(
+    enrolledCourses.reduce((sum: number, course: any) => {
+      // Extract hours from duration string (e.g., "4 weeks" -> 4, "2 hours" -> 2)
+      const durationMatch = course.duration?.match(/(\d+)/);
+      const courseHours = durationMatch ? parseInt(durationMatch[1]) : 2; // Default 2 hours if no duration
+
+      // Add quiz time (estimated 15 minutes per quiz attempt)
+      const courseQuizzes = quizHistory.filter((quiz: any) => quiz.domain === course.domain).length;
+      const quizHours = courseQuizzes * 0.25; // 15 minutes = 0.25 hours
+
+      return sum + courseHours + quizHours;
+    }, 0)
+  );
 
   const getLevelBadgeColor = (level: string) => {
     const colors: Record<string, string> = {
@@ -160,7 +205,7 @@ export default function Dashboard() {
                 </Button>
               </Link>
             </div>
-            
+
             {skillsAssessed === 0 ? (
               <div className="text-center py-8">
                 <Award className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -187,91 +232,154 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Enrolled Courses */}
+          {/* Learning Path Progress */}
           <div className="glass-card p-6 rounded-2xl neon-border">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="font-display font-semibold text-xl text-foreground">Enrolled Courses</h2>
-              <Link href="/courses">
-                <Button variant="ghost" size="sm" className="hover:text-primary" data-testid="button-browse-courses">
-                  Browse All
+              <h2 className="font-display font-semibold text-xl text-foreground">Learning Path</h2>
+              <Link href="/settings">
+                <Button variant="ghost" size="sm" className="hover:text-primary" data-testid="button-view-full-progress">
+                  View Details
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               </Link>
             </div>
 
-            {enrolledCourses.length === 0 ? (
-              <div className="text-center py-8">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground mb-4">No courses enrolled yet</p>
-                <Link href="/courses">
-                  <Button data-testid="button-explore-courses">
-                    <TrendingUp className="h-4 w-4 mr-2" />
-                    Explore Courses
-                  </Button>
-                </Link>
+            <div className="space-y-4">
+              {/* Learning Stats Grid */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center p-3 bg-muted/20 rounded-lg cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => setEnrolledCoursesOpen(!enrolledCoursesOpen)}>
+                  <Brain className="h-6 w-6 mx-auto mb-1 text-chart-2" />
+                  <div className="text-lg font-bold text-foreground">{totalQuizzes}</div>
+                  <div className="text-xs text-muted-foreground">Quiz Taken</div>
+                </div>
+                <div className="text-center p-3 bg-muted/20 rounded-lg cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => setEnrolledCoursesOpen(!enrolledCoursesOpen)}>
+                  <Trophy className="h-6 w-6 mx-auto mb-1 text-primary" />
+                  <div className="text-lg font-bold text-foreground">{averageScore}%</div>
+                  <div className="text-xs text-muted-foreground">Avg Score</div>
+                </div>
+                <div className="text-center p-3 bg-muted/20 rounded-lg cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => setEnrolledCoursesOpen(!enrolledCoursesOpen)}>
+                  <Clock className="h-6 w-6 mx-auto mb-1 text-chart-4" />
+                  <div className="text-lg font-bold text-foreground">{totalHours}</div>
+                  <div className="text-xs text-muted-foreground">Hours Spent</div>
+                </div>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {enrolledCourses.slice(0, 3).map((course: any) => (
-                  <div key={course.id} className="overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-primary/40 transition-all group" data-testid={`enrolled-course-${course.id}`}>
-                    <div className="flex gap-4">
-                      {/* Course Image */}
-                      <div className="relative w-32 h-32 flex-shrink-0 overflow-hidden">
-                        <img 
-                          src={getCourseImage(course)} 
-                          alt={course.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/60" />
-                      </div>
-                      
-                      {/* Course Info */}
-                      <div className="flex-1 py-3 pr-4 min-w-0">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <p className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">{course.title}</p>
-                              {course.completed && (
-                                <CheckCircle2 className="h-4 w-4 text-chart-3 flex-shrink-0" />
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 flex-wrap mb-2">
-                              <p className="text-sm text-muted-foreground">{course.provider}</p>
-                              {course.domain && (
-                                <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
-                                  {course.domain}
-                                </Badge>
-                              )}
-                              {course.skillLevel && (
-                                <Badge variant="outline" className="text-xs bg-chart-1/10 text-chart-1 border-chart-1/20">
-                                  {course.skillLevel}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <a 
-                            href={course.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="p-2 rounded-md hover:bg-primary/20 transition-colors flex-shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-4 w-4 text-primary" />
-                          </a>
+
+              {/* Overall Progress */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Overall Progress</span>
+                  <span className="text-sm text-muted-foreground">
+                    {enrolledCourses.filter(c => c.completed).length}/{enrolledCourses.length} courses
+                  </span>
+                </div>
+                <Progress
+                  value={enrolledCourses.length > 0 ? (enrolledCourses.filter(c => c.completed).length / enrolledCourses.length) * 100 : 0}
+                  className="h-2"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Enrolled Courses Toggle */}
+        <div className="glass-card p-6 rounded-2xl neon-border">
+          <Collapsible open={enrolledCoursesOpen} onOpenChange={setEnrolledCoursesOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between p-0 h-auto hover:bg-transparent">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-lg bg-primary/20 border border-primary/30 backdrop-blur-sm">
+                    <BookOpen className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="text-left">
+                    <h2 className="font-display font-semibold text-xl text-foreground">Enrolled Courses</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {enrolledCourses.length} course{enrolledCourses.length !== 1 ? 's' : ''} enrolled
+                    </p>
+                  </div>
+                </div>
+                {enrolledCoursesOpen ? (
+                  <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent className="mt-6">
+              {enrolledCourses.length === 0 ? (
+                <div className="text-center py-8">
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground mb-4">No courses enrolled yet</p>
+                  <Link href="/courses">
+                    <Button data-testid="button-explore-courses">
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Explore Courses
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {enrolledCourses.map((course: any) => (
+                    <div key={course.id} className="overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-primary/40 transition-all group" data-testid={`enrolled-course-${course.id}`}>
+                      <div className="flex gap-4">
+                        {/* Course Image */}
+                        <div className="relative w-32 h-32 flex-shrink-0 overflow-hidden">
+                          <img
+                            src={getCourseImage(course)}
+                            alt={course.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent to-black/60" />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Progress value={course.progress || 0} className="flex-1 h-2" />
-                          <span className="text-xs font-semibold text-primary min-w-[3rem] text-right">
-                            {course.progress || 0}%
-                          </span>
+
+                        {/* Course Info */}
+                        <div className="flex-1 py-3 pr-4 min-w-0">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <p className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">{course.title}</p>
+                                {course.completed && (
+                                  <CheckCircle2 className="h-4 w-4 text-chart-3 flex-shrink-0" />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap mb-2">
+                                <p className="text-sm text-muted-foreground">{course.provider}</p>
+                                {course.domain && (
+                                  <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                                    {course.domain}
+                                  </Badge>
+                                )}
+                                {course.skillLevel && (
+                                  <Badge variant="outline" className="text-xs bg-chart-1/10 text-chart-1 border-chart-1/20">
+                                    {course.skillLevel}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <a
+                              href={course.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 rounded-md hover:bg-primary/20 transition-colors flex-shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-4 w-4 text-primary" />
+                            </a>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Progress value={course.progress || 0} className="flex-1 h-2" />
+                            <span className="text-xs font-semibold text-primary min-w-[3rem] text-right">
+                              {course.progress || 0}%
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
         </div>
 
         {/* Quick Actions */}

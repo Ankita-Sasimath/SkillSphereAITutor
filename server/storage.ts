@@ -153,6 +153,8 @@ export class DbStorage implements IStorage {
   }
 
   async getUserChatHistory(userId: string, limit: number = 50): Promise<ChatMessage[]> {
+    // Get messages ordered by timestamp ascending (oldest first) for proper conversation flow
+    // Then reverse in the route handler if needed for display
     return await db.select().from(chatMessages)
       .where(eq(chatMessages.userId, userId))
       .orderBy(desc(chatMessages.timestamp))

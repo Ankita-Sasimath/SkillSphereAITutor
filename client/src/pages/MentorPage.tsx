@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,16 @@ interface Message {
 }
 
 export default function MentorPage() {
+  const userId = localStorage.getItem('userId') || 'demo-user-123';
+  const userName = localStorage.getItem('userName') || 'User';
+  const queryClient = useQueryClient();
+  
+  // Load previous chat history from database (adaptive learning/memory)
+  const { data: chatHistory, isLoading: isLoadingHistory } = useQuery<Array<{ role: string; content: string; timestamp: string }>>({
+    queryKey: ['/api/user', userId, 'chat-history'],
+    enabled: !!userId,
+  });
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -26,9 +36,37 @@ export default function MentorPage() {
   ]);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
-  const userId = localStorage.getItem('userId') || 'demo-user-123';
-  const userName = localStorage.getItem('userName') || 'User';
+  // Load previous conversation history when component mounts
+  useEffect(() => {
+    if (chatHistory && chatHistory.length > 0 && !historyLoaded) {
+      // Database returns newest first, so reverse to get chronological order
+      const chronologicalHistory = [...chatHistory].reverse();
+      const loadedMessages: Message[] = chronologicalHistory
+        .slice(-20) // Load last 20 messages (most recent)
+        .map((msg, idx) => ({
+          id: `history-${Date.now()}-${idx}`,
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content,
+          timestamp: new Date(msg.timestamp)
+        }));
+      
+      // Add welcome message if no history, or prepend to history
+      if (loadedMessages.length > 0) {
+        setMessages([
+          {
+            id: '1',
+            role: 'assistant',
+            content: "Hi! I'm your AI learning mentor. I remember our previous conversations and I'm here to continue helping you achieve your learning goals. How can I assist you today?",
+            timestamp: new Date()
+          },
+          ...loadedMessages
+        ]);
+      }
+      setHistoryLoaded(true);
+    }
+  }, [chatHistory, historyLoaded]);
 
   const chatMutation = useMutation({
     mutationFn: async (userMessage: string) => {
@@ -58,6 +96,8 @@ export default function MentorPage() {
           timestamp: new Date()
         };
         setMessages(prev => [...prev, assistantMessage]);
+        // Invalidate chat history to refresh it with new messages
+        queryClient.invalidateQueries({ queryKey: ['/api/user', userId, 'chat-history'] });
       }
     },
     onError: (error) => {
@@ -105,12 +145,18 @@ export default function MentorPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-lg text-foreground">Your Personal AI Mentor</h3>
-                <p className="text-base text-muted-foreground">Always here to help you learn and grow</p>
+                <p className="text-base text-muted-foreground">Adaptive learning with memory - remembers our conversations and your enrolled courses</p>
               </div>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-6">
+            {isLoadingHistory && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <span className="ml-2 text-muted-foreground">Loading conversation history...</span>
+              </div>
+            )}
             <div className="space-y-6">
               {messages.map((message) => (
                 <div

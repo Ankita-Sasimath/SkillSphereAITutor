@@ -1,15 +1,35 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY,
-  timeout: 30000, // 30 second timeout for better reliability
-  maxRetries: 1 // One retry for chat to be more reliable
-});
+// Initialize Gemini AI
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY || "");
+
+// Use latest Gemini model names - gemini-2.5-flash is faster and cheaper
+// gemini-2.5-pro is more capable but slower
+const DEFAULT_MODEL = "gemini-2.5-flash";
+
+// Helper function to convert OpenAI-style messages to Gemini format
+function convertMessagesToGemini(messages: Array<{ role: string; content: string }>) {
+  // Gemini uses a different format - we need to combine system and user messages
+  let systemInstruction = "";
+  const conversationHistory: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
+  
+  for (const msg of messages) {
+    if (msg.role === "system") {
+      systemInstruction = msg.content;
+    } else if (msg.role === "user") {
+      conversationHistory.push({ role: "user", parts: [{ text: msg.content }] });
+    } else if (msg.role === "assistant") {
+      conversationHistory.push({ role: "model", parts: [{ text: msg.content }] });
+    }
+  }
+  
+  return { systemInstruction, conversationHistory };
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -357,22 +377,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ]
         }`;
 
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: "You are a skill assessment expert. Generate accurate, well-structured, and UNIQUE quizzes in valid JSON format only. Never repeat questions from previous quizzes." },
-            { role: "user", content: prompt }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.9, // Higher temperature for more variation
+        const model = genAI.getGenerativeModel({ 
+          model: DEFAULT_MODEL,
+          generationConfig: {
+            temperature: 0.9,
+            responseMimeType: "application/json",
+          },
+          systemInstruction: "You are a skill assessment expert. Generate accurate, well-structured, and UNIQUE quizzes in valid JSON format only. Never repeat questions from previous quizzes."
         });
 
-        const content = completion.choices[0].message.content || "{}";
+        const result = await model.generateContent(prompt);
+        const content = result.response.text() || "{}";
         const quizData = JSON.parse(content);
         
         // Validate quiz structure
         if (!quizData.questions || !Array.isArray(quizData.questions) || quizData.questions.length === 0) {
-          console.log("Invalid quiz structure from OpenAI, using fallback");
+          console.log("Invalid quiz structure from Gemini, using fallback");
           return res.json(getFallbackQuiz(domain));
         }
         
@@ -381,7 +401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           questions: quizData.questions
         });
       } catch (aiError) {
-        console.error("OpenAI quiz generation failed, using fallback:", aiError);
+        console.error("Gemini quiz generation failed, using fallback:", aiError);
         res.json(getFallbackQuiz(domain));
       }
     } catch (error) {
@@ -484,6 +504,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get quiz history for a user
+  app.get("/api/quiz/history", async (req: Request, res: Response) => {
+    try {
+      const userId = req.query.userId as string;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const attempts = await storage.getUserQuizAttempts(userId);
+      
+      // Format the quiz history
+      const quizHistory = attempts.map((attempt: any) => ({
+        id: attempt.id,
+        domain: attempt.domain,
+        score: attempt.score,
+        totalQuestions: attempt.totalQuestions,
+        percentage: Math.round((attempt.score / attempt.totalQuestions) * 100),
+        skillLevel: attempt.skillLevelDetermined,
+        createdAt: attempt.createdAt
+      }));
+
+      res.json(quizHistory);
+    } catch (error) {
+      console.error("Error fetching quiz history:", error);
+      res.status(500).json({ error: "Failed to fetch quiz history" });
+    }
+  });
+
   // Get course recommendations
   app.post("/api/courses/recommend", async (req: Request, res: Response) => {
     try {
@@ -518,17 +567,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ]
       }`;
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: "You are a learning path expert. Recommend real, high-quality courses from reputable platforms." },
-          { role: "user", content: prompt }
-        ],
-        response_format: { type: "json_object" },
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-pro",
+        generationConfig: {
         temperature: 0.8,
+          responseMimeType: "application/json",
+        },
+        systemInstruction: "You are a learning path expert. Recommend real, high-quality courses from reputable platforms."
       });
 
-      const data = JSON.parse(completion.choices[0].message.content || "{}");
+      const result = await model.generateContent(prompt);
+      const data = JSON.parse(result.response.text() || "{}");
       
       res.json({ courses: data.courses || [] });
     } catch (error) {
@@ -701,20 +750,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ]
         }`;
 
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { 
-              role: "system", 
-              content: "You recommend REAL courses from platforms like YouTube, Coursera, Udemy, freeCodeCamp with SPECIFIC course URLs. NEVER use platform homepages like youtube.com or coursera.org - always include the full path to the actual course (/watch?v=, /learn/, /course/). You have knowledge of real popular courses and their actual URLs." 
-            },
-            { role: "user", content: prompt }
-          ],
-          response_format: { type: "json_object" },
+        const model = genAI.getGenerativeModel({ 
+          model: DEFAULT_MODEL,
+          generationConfig: {
           temperature: 0.7,
+            responseMimeType: "application/json",
+          },
+          systemInstruction: "You recommend REAL courses from platforms like YouTube, Coursera, Udemy, freeCodeCamp with SPECIFIC course URLs. NEVER use platform homepages like youtube.com or coursera.org - always include the full path to the actual course (/watch?v=, /learn/, /course/). You have knowledge of real popular courses and their actual URLs."
         });
 
-        const data = JSON.parse(completion.choices[0].message.content || "{}");
+        const result = await model.generateContent(prompt);
+        const data = JSON.parse(result.response.text() || "{}");
         
         // Validate and filter out invalid URLs (platform homepages)
         const validCourses = (data.courses || []).filter((course: any) => {
@@ -1022,17 +1068,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ]
         }`;
 
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: "You are a learning schedule expert. Create realistic, achievable learning plans." },
-            { role: "user", content: prompt }
-          ],
-          response_format: { type: "json_object" },
+        const model = genAI.getGenerativeModel({ 
+          model: DEFAULT_MODEL,
+          generationConfig: {
           temperature: 0.7,
+            responseMimeType: "application/json",
+          },
+          systemInstruction: "You are a learning schedule expert. Create realistic, achievable learning plans."
         });
 
-        const data = JSON.parse(completion.choices[0].message.content || "{}");
+        const result = await model.generateContent(prompt);
+        const data = JSON.parse(result.response.text() || "{}");
         scheduleItems = data.scheduleItems || [];
       } catch (aiError) {
         console.error("AI schedule generation failed, using fallback:", aiError);
@@ -1171,104 +1217,392 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "User ID and message are required" });
       }
 
-      // Get comprehensive user context
+      // Get comprehensive user context - ALWAYS fetch fresh data
       const skills = await storage.getUserSkillLevels(userId);
       const courses = await storage.getUserCourses(userId);
       const allQuizHistory = await storage.getUserQuizAttempts(userId);
       const quizHistory = allQuizHistory.slice(0, 5); // Get latest 5
       
+      // Load previous conversation history from database (adaptive learning/memory)
+      const storedChatHistory = await storage.getUserChatHistory(userId, 30); // Get last 30 messages for better context
+      const dbConversationHistory = storedChatHistory
+        .reverse() // Reverse to get chronological order
+        .slice(0, 20) // Use last 20 for context
+        .map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
+      
       // Analyze learning progress
       const completedCourses = courses.filter(c => c.completed);
       const inProgressCourses = courses.filter(c => !c.completed && (c.progress || 0) > 0);
+      const notStartedCourses = courses.filter(c => !c.completed && (c.progress || 0) === 0);
       const assessedDomains = skills.map(s => s.domain);
       const unevaluatedDomains = inProgressCourses
         .map(c => c.domain)
         .filter(d => d && !assessedDomains.includes(d));
       
+      // Build detailed course information for context
+      const courseDetails = courses.map(c => ({
+        title: c.courseTitle,
+        domain: c.domain,
+        platform: c.coursePlatform,
+        progress: c.progress || 0,
+        completed: c.completed,
+        url: c.courseUrl,
+        skillLevel: c.skillLevel,
+        description: c.description
+      })).slice(0, 15); // Limit to 15 most recent courses
+      
+      // Get recent quiz performance for adaptive learning
+      const recentQuizScores = quizHistory.map(q => ({
+        domain: q.domain,
+        score: q.score,
+        total: q.totalQuestions,
+        percentage: Math.round((q.score / q.totalQuestions) * 100),
+        skillLevel: q.skillLevelDetermined,
+        date: q.completedAt
+      }));
+      
+      // Analyze learning patterns for adaptive responses
+      const learningPatterns = {
+        mostActiveDomain: assessedDomains.length > 0 ? assessedDomains[0] : null,
+        averageQuizScore: recentQuizScores.length > 0 
+          ? Math.round(recentQuizScores.reduce((sum, q) => sum + q.percentage, 0) / recentQuizScores.length)
+          : null,
+        improvementTrend: recentQuizScores.length >= 2 
+          ? (recentQuizScores[0].percentage > recentQuizScores[recentQuizScores.length - 1].percentage ? 'improving' : 'stable')
+          : null,
+        learningVelocity: inProgressCourses.length > 0 
+          ? Math.round(inProgressCourses.reduce((sum, c) => sum + (c.progress || 0), 0) / inProgressCourses.length)
+          : 0,
+        completionRate: courses.length > 0 
+          ? Math.round((completedCourses.length / courses.length) * 100)
+          : 0
+      };
+      
+      // Analyze conversation patterns for adaptive learning
+      const conversationTopics = dbConversationHistory
+        .filter(m => m.role === 'user')
+        .map(m => {
+          const text = m.content.toLowerCase();
+          if (text.includes('course') || text.includes('learn') || text.includes('study')) return 'learning';
+          if (text.includes('quiz') || text.includes('test') || text.includes('assess')) return 'assessment';
+          if (text.includes('help') || text.includes('how') || text.includes('what')) return 'guidance';
+          if (text.includes('stuck') || text.includes('difficult') || text.includes('problem')) return 'support';
+          return 'general';
+        });
+      
+      const mostCommonTopic = conversationTopics.length > 0
+        ? conversationTopics.reduce((a, b, _, arr) => 
+            arr.filter(v => v === a).length >= arr.filter(v => v === b).length ? a : b
+          )
+        : null;
+      
+      // Extract user preferences and learning style from conversations
+      const userPreferences = {
+        prefersDetailed: conversationTopics.filter(t => t === 'guidance').length > 2,
+        needsMotivation: conversationTopics.filter(t => t === 'support').length > 1,
+        focusedOnCourses: conversationTopics.filter(t => t === 'learning').length > 2,
+        activeInAssessments: conversationTopics.filter(t => t === 'assessment').length > 1
+      };
+      
       let response = "";
       
       try {
-        const systemPrompt = `You are an AI learning mentor helping a student on SkillPath, an AI-powered learning platform.
+        // Check if user is asking for course recommendations - generate them dynamically
+        const lowerMessage = message.toLowerCase();
+        let courseRecommendations = '';
+        
+        if (lowerMessage.includes('course') || lowerMessage.includes('suggest') || lowerMessage.includes('recommend') || lowerMessage.includes('learn')) {
+          try {
+            // Get user's skill levels to generate relevant course recommendations
+            if (skills.length > 0) {
+              // Get recommendations for user's assessed domains
+              const topDomain = skills[0]; // Most recent or primary domain
+              const recommendPrompt = `Recommend 6 high-quality courses for learning ${topDomain.domain} at ${topDomain.skillLevel} level. Include a mix of FREE and paid options. For each course provide: title, platform, url (direct course URL not homepage), isPaid, description (max 100 chars), skillLevel. Return ONLY valid JSON with courses array.`;
+              
+              try {
+                const recommendModel = genAI.getGenerativeModel({ 
+                  model: DEFAULT_MODEL,
+                  generationConfig: {
+                    temperature: 0.7,
+                    responseMimeType: "application/json",
+                  },
+                  systemInstruction: "You are a learning path expert. Recommend real, high-quality courses from reputable platforms. Always provide direct course URLs, not platform homepages."
+                });
+                
+                const recommendResult = await recommendModel.generateContent(recommendPrompt);
+                const recommendData = JSON.parse(recommendResult.response.text() || "{}");
+                if (recommendData.courses && recommendData.courses.length > 0) {
+                  const recommendedCourses = recommendData.courses.slice(0, 6).map((c: any, i: number) => 
+                    `${i + 1}. "${c.title}" (${topDomain.domain}) - ${c.platform} - ${c.skillLevel || topDomain.skillLevel} level${c.url ? ` - ${c.url}` : ''}${c.isPaid ? ' (Paid)' : ' (Free)'}`
+                  ).join('\n');
+                  courseRecommendations = `\n\nAVAILABLE COURSE RECOMMENDATIONS (for ${topDomain.domain} at ${topDomain.skillLevel} level):\n${recommendedCourses}`;
+                }
+              } catch (err) {
+                // Silently fail - we'll use enrolled courses instead
+              }
+            }
+          } catch (err) {
+            // Silently fail - we'll use enrolled courses instead
+          }
+        }
+        
+        // Build comprehensive user profile for personalization
+        const userProfile = {
+          skills: skills.map(s => `${s.domain} (${s.skillLevel})`).join(', ') || 'None yet',
+          totalCourses: courses.length,
+          completedCourses: completedCourses.map(c => c.courseTitle).join(', ') || 'None',
+          inProgressCourses: inProgressCourses.map(c => `${c.courseTitle} (${c.progress}% complete)`).join(', ') || 'None',
+          notStartedCourses: notStartedCourses.map(c => c.courseTitle).join(', ') || 'None',
+          quizAttempts: quizHistory.length,
+          unevaluatedDomains: unevaluatedDomains.join(', ') || 'None',
+          mostActiveDomain: learningPatterns.mostActiveDomain || 'None',
+          averageScore: learningPatterns.averageQuizScore || 'N/A',
+          learningVelocity: learningPatterns.learningVelocity,
+          completionRate: learningPatterns.completionRate,
+          improvementTrend: learningPatterns.improvementTrend || 'N/A',
+          conversationStyle: mostCommonTopic || 'general',
+          preferences: userPreferences
+        };
+        
+        const systemPrompt = `You are an advanced AI learning mentor on SkillPath, an AI-powered learning platform. You are like ChatGPT - highly conversational, intelligent, and deeply personalized. You have COMPLETE MEMORY of all previous conversations and provide ADAPTIVE, CONTEXTUAL guidance that evolves with the user.
 
-STUDENT PROFILE:
-- Skills assessed: ${skills.map(s => `${s.domain} (${s.skillLevel})`).join(', ') || 'None yet'}
-- Total courses enrolled: ${courses.length}
-- Completed courses: ${completedCourses.length}
-- In-progress courses: ${inProgressCourses.length}
-- Recent quiz attempts: ${quizHistory.length}
-- Domains without assessment: ${unevaluatedDomains.join(', ') || 'None'}
+🎯 YOUR CORE PERSONALITY:
+- Be conversational, warm, and engaging like ChatGPT
+- Show genuine interest in the user's learning journey
+- Adapt your communication style to match the user's preferences
+- Remember and reference past conversations naturally
+- Ask follow-up questions when appropriate
+- Provide detailed, thoughtful responses
+- Be encouraging but realistic
+- Use natural language, not robotic templates
+
+🧠 ADAPTIVE LEARNING CAPABILITIES:
+- Learn from conversation patterns to understand user's learning style
+- Remember what topics interest the user most
+- Adapt response depth based on user's needs (${userProfile.preferences.prefersDetailed ? 'User prefers detailed explanations' : 'Keep responses concise unless asked for detail'})
+- Recognize when user needs motivation vs. technical help
+- Track learning progress and celebrate milestones
+- Identify knowledge gaps and suggest targeted learning
+
+👤 STUDENT PROFILE (REAL DATA - USE THIS FOR PERSONALIZATION):
+**Current Skills & Levels:**
+${userProfile.skills}
+
+**Learning Progress:**
+- Total courses enrolled: ${userProfile.totalCourses}
+- Completed: ${completedCourses.length} course${completedCourses.length !== 1 ? 's' : ''} (${userProfile.completedCourses})
+- In Progress: ${inProgressCourses.length} course${inProgressCourses.length !== 1 ? 's' : ''} (${userProfile.inProgressCourses})
+- Not Started: ${notStartedCourses.length} course${notStartedCourses.length !== 1 ? 's' : ''} (${userProfile.notStartedCourses})
+
+**Performance Metrics:**
+- Quiz attempts: ${userProfile.quizAttempts}
+- Average score: ${userProfile.averageScore}%
+- Most active domain: ${userProfile.mostActiveDomain}
+- Learning velocity: ${userProfile.learningVelocity}% average progress
+- Completion rate: ${userProfile.completionRate}%
+- Improvement trend: ${userProfile.improvementTrend}
+- Domains needing assessment: ${userProfile.unevaluatedDomains}
+
+**Learning Style & Preferences:**
+- Conversation focus: ${userProfile.conversationStyle}
+- Prefers detailed explanations: ${userProfile.preferences.prefersDetailed ? 'Yes' : 'No'}
+- Needs motivation: ${userProfile.preferences.needsMotivation ? 'Yes - be encouraging' : 'No'}
+- Course-focused: ${userProfile.preferences.focusedOnCourses ? 'Yes' : 'No'}
+- Assessment-active: ${userProfile.preferences.activeInAssessments ? 'Yes' : 'No'}
+
+ENROLLED COURSES (USE THESE SPECIFIC COURSES - Mention by name when relevant):
+${courseDetails.length > 0 ? courseDetails.map((c, i) => 
+  `${i + 1}. "${c.title}" (${c.domain}) - ${c.platform} - ${c.completed ? '✅ Completed' : c.progress > 0 ? `📚 ${c.progress}% progress` : '📋 Not started'} - ${c.skillLevel || 'N/A'} level - ${c.url}${c.description ? `\n   Description: ${c.description}` : ''}`
+).join('\n') : 'No courses enrolled yet'}
+
+RECENT QUIZ PERFORMANCE:
+${recentQuizScores.length > 0 ? recentQuizScores.map((q, i) => 
+  `${i + 1}. ${q.domain}: ${q.score}/${q.total} (${q.percentage}%) - ${q.skillLevel} level`
+).join('\n') : 'No quiz attempts yet'}
+
+${courseRecommendations}
 
 PLATFORM FEATURES & NAVIGATION:
-When users ask about how to use the platform or specific features, guide them:
-- **Dashboard**: Overview of learning progress, enrolled courses, skill levels, and quick actions
-- **Courses**: Browse and enroll in personalized course recommendations based on skill assessments. Filter by domain and see enrolled courses.
-- **Assessments**: Take AI-generated quizzes to evaluate skills (Beginner/Intermediate/Advanced). Can retake quizzes to improve assessment accuracy.
+- **Dashboard**: Shows learning progress, enrolled courses (${courses.length} total), skill levels (${Object.keys(skills).length} domains assessed), and quick actions
+- **Courses**: Browse and enroll in personalized course recommendations. User can filter by domain and see enrolled courses.
+- **Assessments**: Take AI-generated quizzes to evaluate skills. Can retake quizzes to improve assessment accuracy.
 - **Schedule**: Plan learning activities and track completion progress
 - **AI Mentor**: (this page) Get personalized guidance, ask questions, receive proactive recommendations
 
-YOUR ROLE:
-- Provide personalized, actionable guidance based on their progress
-- When they complete courses, suggest taking quizzes to assess their new skills
-- If they haven't taken quizzes in their enrolled course domains, recommend assessments
-- Help them navigate the platform by explaining features when asked
-- Guide users through their learning journey step-by-step
-- Explain how each platform feature helps them achieve their learning goals
-- Be encouraging, specific, and motivating
-- Answer questions clearly and conversationally
-- Keep responses friendly, helpful, and encouraging
+💬 CONVERSATION GUIDELINES (ChatGPT-like Quality):
 
-HOW THE PLATFORM WORKS:
-1. Take skill assessments (Assessments page) to determine current level
-2. Get personalized course recommendations (Courses page) based on assessment
-3. Enroll in courses and track progress (Dashboard)
-4. Create learning schedules (Schedule page) to stay organized
-5. Chat with AI mentor for guidance and support (this page)
-6. Retake quizzes as you learn to track improvement
+**Response Style:**
+- Be natural, conversational, and human-like
+- Show personality and warmth
+- Use "you" and "your" to make it personal
+- Vary sentence structure - don't sound repetitive
+- Use emojis sparingly and appropriately (🎯 📚 ✅ 💡)
+- Break up long responses with line breaks for readability
 
-Keep responses conversational, clear, and engaging (2-4 paragraphs). Always be helpful and specific.`;
+**Personalization Rules:**
+1. **ALWAYS use real data**: Reference specific course names, exact progress percentages, actual skill levels
+2. **Reference past conversations**: "As we discussed earlier...", "Remember when you asked about...", "Building on what you mentioned..."
+3. **Adapt to learning style**: 
+   - If user prefers details → Provide comprehensive explanations
+   - If user needs motivation → Be encouraging and highlight progress
+   - If user is course-focused → Prioritize course recommendations
+4. **Context-aware responses**:
+   - If asking about courses → Start with their enrolled courses by name, then suggest new ones
+   - If asking about progress → Use specific numbers: "${inProgressCourses[0]?.courseTitle || 'your course'}" is ${inProgressCourses[0]?.progress || 0}% complete
+   - If asking about skills → Reference exact levels: "${skills.map(s => `${s.domain} (${s.skillLevel})`).join(', ') || 'None yet'}"
+   - If asking about dashboard → Explain with real numbers: ${courses.length} courses, ${skills.length} skill assessments
 
-        const messages = [
-          { role: "system" as const, content: systemPrompt },
-          ...(conversationHistory || []),
-          { role: "user" as const, content: message }
-        ];
+**Adaptive Learning Features:**
+- **Remember preferences**: If user asked for detailed explanations before, provide them again
+- **Track interests**: Note which domains/topics user asks about most
+- **Celebrate progress**: "Great job completing ${completedCourses.length} course${completedCourses.length !== 1 ? 's' : ''}!"
+- **Identify gaps**: "I notice you haven't assessed ${unevaluatedDomains[0] || 'some domains'} yet..."
+- **Suggest next steps**: Based on their actual progress and goals
 
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages,
-          temperature: 0.8, // More conversational
-          max_tokens: 500 // Longer responses for better engagement
-        }, {
-          timeout: 25000 // Give chat extra time (25 seconds)
+**Response Quality:**
+- Length: 2-5 paragraphs typically, but adapt to question complexity
+- Depth: Match user's needs - some want quick answers, others want deep dives
+- Tone: Supportive, knowledgeable, friendly - like a trusted mentor
+- Examples: Use real examples from their courses and progress
+- Actionable: Always provide specific, actionable advice
+
+**Critical Rules:**
+- NEVER repeat the same response twice
+- NEVER use generic templates - every response must be unique
+- ALWAYS reference their actual data (course names, progress, skills)
+- ALWAYS consider conversation history for context
+- ALWAYS personalize based on their learning patterns
+- Be like ChatGPT - intelligent, helpful, and conversational`;
+
+        // Merge conversation history: database history + current session history + new message
+        // Remove duplicates and ensure chronological order
+        const sessionHistory = conversationHistory || [];
+        const allHistory = [...dbConversationHistory, ...sessionHistory];
+        // Remove duplicate consecutive messages
+        const uniqueHistory = allHistory.filter((msg, idx, arr) => {
+          if (idx === 0) return true;
+          const prev = arr[idx - 1];
+          return !(msg.role === prev.role && msg.content === prev.content);
+        }).slice(-25); // Keep last 25 messages for better context (increased from 15)
+        
+        // Analyze conversation flow for better context understanding
+        const recentUserMessages = uniqueHistory
+          .filter(m => m.role === 'user')
+          .slice(-5)
+          .map(m => m.content);
+        
+        const conversationContext = {
+          recentTopics: recentUserMessages,
+          messageCount: uniqueHistory.length,
+          hasHistory: uniqueHistory.length > 2
+        };
+
+        // Enhance system prompt with conversation context for better personalization
+        const enhancedSystemPrompt = `${systemPrompt}
+
+📝 RECENT CONVERSATION CONTEXT:
+${conversationContext.hasHistory ? `- We've had ${conversationContext.messageCount} messages in this conversation
+- Recent topics discussed: ${conversationContext.recentTopics.slice(-3).join(', ')}
+- Use this context to provide continuity and avoid repetition` : '- This is the start of our conversation'}
+
+💡 CURRENT USER QUESTION: "${message}"
+
+Remember: Respond naturally, personally, and helpfully. Be like ChatGPT - intelligent, conversational, and deeply personalized.`;
+        
+        // Convert messages to Gemini format
+        const { systemInstruction, conversationHistory: geminiHistory } = convertMessagesToGemini([
+          { role: "system", content: enhancedSystemPrompt },
+          ...uniqueHistory,
+          { role: "user", content: message }
+        ]);
+
+        // Start a chat session with Gemini - optimized for ChatGPT-like conversations
+        const model = genAI.getGenerativeModel({ 
+          model: DEFAULT_MODEL,
+          generationConfig: {
+            temperature: 0.95, // Higher temperature for more natural, varied responses
+            maxOutputTokens: 1000, // Longer responses for detailed, helpful answers
+            topP: 0.95, // Nucleus sampling for better quality
+            topK: 40, // Top-k sampling for diversity
+          },
+          systemInstruction: systemInstruction || systemPrompt
         });
 
-        response = completion.choices[0].message.content || "";
+        // Build conversation history for Gemini (all except the last user message)
+        const history = geminiHistory.slice(0, -1);
+        const lastUserMessage = geminiHistory[geminiHistory.length - 1];
+
+        // Start chat with history
+        const chat = model.startChat({
+          history: history.length > 0 ? history : undefined,
+        });
+
+        // Send the last user message
+        const result = await chat.sendMessage(lastUserMessage.parts[0].text);
+        response = result.response.text() || "";
       } catch (aiError) {
         console.error("AI chat failed, using fallback:", aiError);
-        // Context-aware fallback responses
+        // Context-aware fallback responses with real data
         const lowerMessage = message.toLowerCase();
         
         if (lowerMessage.includes('motivat') || lowerMessage.includes('stuck') || lowerMessage.includes('difficult')) {
-          response = "Learning can be challenging, but you're making great progress! Remember that every expert was once a beginner. Take it one step at a time, celebrate small wins, and don't be afraid to ask for help. You've got this!";
-        } else if (lowerMessage.includes('next') || lowerMessage.includes('what should') || lowerMessage.includes('recommend')) {
-          // Smart recommendations based on user state
-          if (unevaluatedDomains.length > 0) {
+          const progressMsg = inProgressCourses.length > 0 
+            ? `You're making progress on ${inProgressCourses[0].courseTitle} (${inProgressCourses[0].progress}% complete) - keep going!`
+            : completedCourses.length > 0
+            ? `You've already completed ${completedCourses.length} course${completedCourses.length > 1 ? 's' : ''} - that's amazing progress!`
+            : '';
+          response = `${progressMsg} Learning can be challenging, but remember that every expert was once a beginner. Take it one step at a time, celebrate small wins, and don't be afraid to ask for help. You've got this!`;
+        } else if (lowerMessage.includes('course') || lowerMessage.includes('suggest') || lowerMessage.includes('recommend') || lowerMessage.includes('what should') || lowerMessage.includes('learn')) {
+          // Smart course recommendations - prioritize enrolled courses with specific details
+          if (courses.length > 0) {
+            let courseSuggestion = '';
+            if (inProgressCourses.length > 0) {
+              const courseList = inProgressCourses.map(c => `"${c.courseTitle}" (${c.progress}% complete on ${c.coursePlatform})`).join(', ');
+              courseSuggestion = `I see you're currently working on: ${courseList}. I'd recommend continuing with these courses to build on your progress! `;
+            }
+            if (completedCourses.length > 0) {
+              const completedList = completedCourses.map(c => `"${c.courseTitle}"`).join(', ');
+              courseSuggestion += `You've completed: ${completedList}. Great work! `;
+            }
+            if (notStartedCourses.length > 0) {
+              courseSuggestion += `You also have ${notStartedCourses.length} course${notStartedCourses.length > 1 ? 's' : ''} not started yet. `;
+            }
+            
+            if (skills.length > 0) {
+              const skillDetails = skills.map(s => `${s.domain} (${s.skillLevel})`).join(', ');
+              courseSuggestion += `Based on your assessed skills in ${skillDetails}, you might want to explore more advanced courses in those areas. Check the Courses page for personalized recommendations!`;
+            } else {
+              courseSuggestion += `Consider taking a skills assessment to get personalized course recommendations tailored to your level!`;
+            }
+            
+            response = courseSuggestion || `You have ${courses.length} enrolled course${courses.length > 1 ? 's' : ''}. Check out the Courses page to see them and discover new ones based on your skill levels!`;
+          } else if (skills.length > 0) {
+            const skillDetails = skills.map(s => `${s.domain} (${s.skillLevel})`).join(', ');
+            response = `Based on your ${skillDetails} skills, I'd recommend checking out the Courses page to find courses tailored to your level. You can filter by domain and see personalized recommendations!`;
+          } else if (unevaluatedDomains.length > 0) {
             response = `Great question! I notice you're making progress in ${unevaluatedDomains.join(', ')}. Once you feel comfortable with the material, I'd recommend taking a skill assessment quiz to measure your progress and get personalized course recommendations. Head to the Assessments page when you're ready!`;
-          } else if (completedCourses.length > 0 && skills.length === 0) {
-            response = `You've completed ${completedCourses.length} course${completedCourses.length > 1 ? 's' : ''} - that's awesome! Now would be a great time to take a skills assessment to see how much you've learned and get recommendations for your next steps. Check out the Assessments page!`;
           } else {
-            response = `Based on your current skill levels, I'd recommend focusing on building practical projects. Hands-on experience is one of the best ways to solidify your knowledge. Check out the Courses page for resources tailored to your level!`;
+            response = `I'd recommend starting with a skills assessment to understand your current level, then check the Courses page for personalized recommendations. Visit the Assessments page to get started!`;
           }
         } else if (lowerMessage.includes('quiz') || lowerMessage.includes('assess') || lowerMessage.includes('test')) {
           if (skills.length === 0) {
             response = "Taking your first skills assessment is a great way to start! It'll help us understand your current level and recommend the perfect courses for you. Visit the Assessments page to get started!";
           } else {
-            response = `You've already assessed your skills in ${assessedDomains.join(', ')}. ${unevaluatedDomains.length > 0 ? `Consider taking quizzes in ${unevaluatedDomains.join(', ')} to track your progress in those areas!` : 'Keep learning and reassess periodically to track your improvement!'}`;
+            const skillDetails = skills.map(s => `${s.domain} (${s.skillLevel})`).join(', ');
+            response = `You've already assessed your skills in ${skillDetails}. ${unevaluatedDomains.length > 0 ? `Consider taking quizzes in ${unevaluatedDomains.join(', ')} to track your progress in those areas!` : 'Keep learning and reassess periodically to track your improvement!'}`;
           }
+        } else if (lowerMessage.includes('dashboard') || lowerMessage.includes('progress') || lowerMessage.includes('overview')) {
+          response = `Your dashboard shows your learning progress! You have ${courses.length} enrolled course${courses.length > 1 ? 's' : ''} (${completedCourses.length} completed, ${inProgressCourses.length} in progress), and you've assessed your skills in ${skills.length} domain${skills.length !== 1 ? 's' : ''}: ${skills.map(s => `${s.domain} (${s.skillLevel})`).join(', ') || 'None yet'}. You can also see quick actions to take quizzes, browse courses, and manage your schedule.`;
         } else if (lowerMessage.includes('schedule') || lowerMessage.includes('plan') || lowerMessage.includes('time')) {
           response = "Creating a consistent learning schedule is key to success! Try dedicating specific time blocks each day, even if it's just 30 minutes. Use the Schedule feature to plan your learning milestones and track your progress.";
         } else {
-          response = "I'm here to support your learning journey! I can help you with study strategies, course recommendations, staying motivated, or planning your learning schedule. What would you like to focus on today?";
+          // Generic but still personalized response
+          const personalizedNote = courses.length > 0 
+            ? `I see you're working on ${courses.length} course${courses.length > 1 ? 's' : ''}. `
+            : skills.length > 0
+            ? `Based on your ${skills.map(s => s.domain).join(', ')} skills, `
+            : '';
+          response = `${personalizedNote}I'm here to support your learning journey! I can help you with study strategies, course recommendations, staying motivated, or planning your learning schedule. What would you like to focus on today?`;
         }
       }
 

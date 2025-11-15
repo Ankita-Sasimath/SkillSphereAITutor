@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,9 @@ import {
   TrendingUp,
   DollarSign,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Target,
+  Trophy
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -61,7 +63,7 @@ export default function CoursesPage() {
 
   // Fetch enrolled courses
   const { data: enrolledCoursesData, isLoading: isLoadingEnrolled } = useQuery<{ courses: Course[] }>({
-    queryKey: ['/api/user', userId, 'enrolled'],
+    queryKey: ['enrolledCourses', userId],
     enabled: !!userId,
   });
 
@@ -194,13 +196,24 @@ export default function CoursesPage() {
             variant={isEnrolled ? "default" : "outline"}
             size={isEnrolled ? "default" : "icon"}
             className={isEnrolled ? "flex-1 glow-primary" : ""}
-            asChild
+            onClick={() => {
+              if (isEnrolled) {
+                // Just navigate to course for enrolled courses
+                window.open(course.url, '_blank', 'noopener,noreferrer');
+              }
+            }}
             data-testid={`button-view-course-${course.id}`}
           >
-            <a href={course.url} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-4 w-4" />
-              {isEnrolled && <span className="ml-2">Continue Learning</span>}
-            </a>
+            {isEnrolled ? (
+              <>
+                <ExternalLink className="h-4 w-4" />
+                <span className="ml-2">Continue Learning</span>
+              </>
+            ) : (
+              <a href={course.url} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            )}
           </Button>
         </div>
       </div>
@@ -281,20 +294,157 @@ export default function CoursesPage() {
           ) : (
             <>
               <TabsContent value="enrolled" className="mt-6">
-                {filteredEnrolledCourses.length === 0 ? (
-                  <Card className="p-8 text-center">
-                    <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground mb-2">No enrolled courses yet</p>
-                    <p className="text-sm text-muted-foreground">Browse recommended courses below and enroll to start learning!</p>
-                  </Card>
-                ) : (
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredEnrolledCourses.map(course => (
-                      <CourseCard key={course.id} course={course} isEnrolled={true} />
+          {filteredEnrolledCourses.length === 0 ? (
+            <Card className="p-8 text-center">
+              <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-muted-foreground mb-2">No enrolled courses yet</p>
+              <p className="text-sm text-muted-foreground">Browse recommended courses below and enroll to start learning!</p>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {/* Enrolled Courses Summary */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-primary" />
+                    My Enrolled Courses ({filteredEnrolledCourses.length})
+                  </CardTitle>
+                  <CardDescription>
+                    Track your learning journey across all enrolled courses
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredEnrolledCourses.map((course: any) => (
+                      <div key={course.id} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-sm leading-tight mb-1">
+                              {course.title}
+                            </h3>
+                            <p className="text-xs text-muted-foreground mb-2">
+                              {course.provider}
+                            </p>
+                          </div>
+                          <Badge variant={course.completed ? "default" : "secondary"} className="text-xs">
+                            {course.completed ? "Completed" : "In Progress"}
+                          </Badge>
+                        </div>
+                        
+                        <p className="text-xs text-foreground/80 line-clamp-2">
+                          {course.description}
+                        </p>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-400 border-blue-500/20">
+                            {course.domain}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-400 border-purple-500/20">
+                            {course.level}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/20">
+                            {course.duration}
+                          </Badge>
+                          {course.isFree && (
+                            <Badge variant="outline" className="text-xs bg-chart-3/20 text-chart-3 border-chart-3/40">
+                              Free
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 text-xs"
+                            onClick={() => window.open(course.url, '_blank')}
+                          >
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            View Course
+                          </Button>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                )}
-              </TabsContent>
+                </CardContent>
+              </Card>
+
+              {/* Course Details List */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5 text-primary" />
+                    Course Details
+                  </CardTitle>
+                  <CardDescription>
+                    Detailed information about your enrolled courses
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {filteredEnrolledCourses.map((course: any, index: number) => (
+                      <div key={course.id} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-sm font-semibold">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <h4 className="font-semibold">{course.title}</h4>
+                              <p className="text-sm text-muted-foreground">{course.provider}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={course.completed ? "default" : "secondary"}>
+                              {course.completed ? "Completed" : "In Progress"}
+                            </Badge>
+                            {course.isFree && (
+                              <Badge variant="outline" className="bg-chart-3/20 text-chart-3 border-chart-3/40">
+                                Free
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <p className="text-sm text-foreground/80">{course.description}</p>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">Domain:</span>
+                            <p className="font-medium">{course.domain}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Level:</span>
+                            <p className="font-medium">{course.level}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Duration:</span>
+                            <p className="font-medium">{course.duration}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Status:</span>
+                            <p className="font-medium">{course.completed ? "Completed" : "Active"}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(course.url, '_blank')}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Continue Learning
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
 
               <TabsContent value="free" className="mt-6">
                 {freeCourses.length === 0 ? (

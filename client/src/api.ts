@@ -1,6 +1,6 @@
 // API Configuration
 export const API_BASE_URL = import.meta.env.PROD 
-  ? 'https://skillsphereaitutor-1.onrender.com'
+  ? 'https://skill-sphere-ai-tutor-a1mj.vercel.app'
   : 'http://localhost:5000';
 
 // Helper function for API calls

@@ -68,10 +68,8 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // Use import.meta.dirname (available in Node.js 18+)
-  const serverDir = import.meta.dirname;
-  // Vite builds to dist/public, so we need to go up one level and into dist/public
-  const distPath = path.resolve(serverDir, "..", "dist", "public");
+  // In production, dist is at the same level as server
+  const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(

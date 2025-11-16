@@ -5,9 +5,8 @@ import path from "path";
 const __dirname = import.meta.dirname;
 
 export default defineConfig({
-  plugins: [
-    react(),
-  ],
+  plugins: [react()],
+  root: "client",
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "client", "src"),
@@ -15,15 +14,8 @@ export default defineConfig({
       "@assets": path.resolve(__dirname, "attached_assets"),
     },
   },
-  root: path.resolve(__dirname, "client"),
   build: {
-    outDir: path.resolve(__dirname, "dist/public"),
+    outDir: "../dist/public",
     emptyOutDir: true,
-  },
-  server: {
-    fs: {
-      strict: true,
-      deny: ["**/.*"],
-    },
   },
 });

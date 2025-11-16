@@ -15,6 +15,7 @@ import SchedulePage from "@/pages/SchedulePage";
 import SettingsPage from "@/pages/SettingsPage";
 import OnboardingFlow from "@/components/OnboardingFlow";
 import NotFound from "@/pages/not-found";
+import { apiFetch } from './api';
 
 function Router() {
   return (
@@ -35,7 +36,7 @@ function Router() {
               }
               
               // Save user domains
-              const response = await fetch('/api/user/onboard', {
+              const response = await apiFetch('/api/user/onboard', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId, domains: data.domains })

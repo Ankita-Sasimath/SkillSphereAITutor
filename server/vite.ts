@@ -68,8 +68,8 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // Use __dirname as fallback for better compatibility
-  const serverDir = import.meta.dirname || __dirname;
+  // Use import.meta.dirname (available in Node.js 18+)
+  const serverDir = import.meta.dirname;
   // Vite builds to dist/public, so we need to go up one level and into dist/public
   const distPath = path.resolve(serverDir, "..", "dist", "public");
 
